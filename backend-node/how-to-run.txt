@@ -4,4 +4,6 @@
 
 3. then "npm run prisma:generate" 
 
+steps 1,2,3 has to be done only once
+
 4. then you can start the server by running "npm start"
