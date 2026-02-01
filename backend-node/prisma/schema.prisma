@@ -1,0 +1,97 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  password String // Hashed password
+  name     String
+  role     String // "ADMIN", "PET_OWNER", "VET", "NGO", "PUBLIC"
+
+  pets         Pet[]            @relation("OwnerPets")
+  assignedPets Pet[]            @relation("VetPets")
+  strayReports StrayReport[]
+  adoptions    AdoptionRecord[]
+  orders       Order[]
+}
+
+model Pet {
+  id            Int     @id @default(autoincrement())
+  name          String
+  breed         String
+  age           Int
+  photoUrl      String?
+  ownerId       String
+  owner         User    @relation("OwnerPets", fields: [ownerId], references: [id])
+  assignedVetId String?
+  assignedVet   User?   @relation("VetPets", fields: [assignedVetId], references: [id])
+
+  medicalRecord  MedicalRecord?
+  adoptionRecord AdoptionRecord?
+}
+
+model MedicalRecord {
+  id           Int    @id @default(autoincrement())
+  petId        Int    @unique
+  pet          Pet    @relation(fields: [petId], references: [id])
+  // Storing arrays as JSON strings in SQLite
+  vaccinations String // JSON string: "['Rabies', 'Parvo']"
+  treatments   String // JSON string
+  healthLogs   String // JSON string
+}
+
+model StrayReport {
+  id          Int      @id @default(autoincrement())
+  location    String
+  description String
+  photoUrl    String?
+  status      String // "REPORTED", "VERIFIED", "RESCUED", "RESOLVED"
+  reporterId  String
+  reporter    User     @relation(fields: [reporterId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model AdoptionRecord {
+  id          Int    @id @default(autoincrement())
+  petId       Int    @unique
+  pet         Pet    @relation(fields: [petId], references: [id])
+  applicantId String
+  applicant   User   @relation(fields: [applicantId], references: [id])
+  status      String // "PENDING", "APPROVED", "REJECTED"
+}
+
+model Product {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String
+  price       Float
+  stock       Int
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id        Int         @id @default(autoincrement())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  status    String // "PENDING", "SHIPPED", "DELIVERED"
+  total     Float
+  items     OrderItem[]
+  createdAt DateTime    @default(now())
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+}

@@ -1,0 +1,7 @@
+1. first cd into this dir and run "npm install" 
+
+2. then run "npm run prisma:migrate" 
+
+3. then "npm run prisma:generate" 
+
+4. then you can start the server by running "npm start"
