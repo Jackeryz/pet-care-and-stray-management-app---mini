@@ -1,11 +1,40 @@
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import { useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Heart, PawPrint, ShoppingBag, Users } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Heart, PawPrint, ShoppingBag, Users, MapPin, Loader2 } from 'lucide-react';
+import type { Role } from '../types';
 
 export default function WelcomeScreen() {
-  const { login, loginStatus } = useInternetIdentity();
-  const isLoggingIn = loginStatus === 'logging-in';
+  const { login, register, status } = useAuth();
+  const isAuthenticating = status === 'authenticating';
+
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<Role>('PUBLIC_USER');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  const handleGetLocation = async () => {
+    setGeoLoading(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+      setLatitude(position.coords.latitude);
+      setLongitude(position.coords.longitude);
+    } catch (error) {
+      console.error('Geolocation error:', error);
+    } finally {
+      setGeoLoading(false);
+    }
+  };
 
   return (
     <div className="container py-12">
@@ -21,12 +50,131 @@ export default function WelcomeScreen() {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Your comprehensive platform for pet management, stray animal rescue, and pet care services
           </p>
-          <div className="pt-4">
-            <Button size="lg" onClick={login} disabled={isLoggingIn}>
-              {isLoggingIn ? 'Logging in...' : 'Get Started'}
-            </Button>
-          </div>
         </div>
+
+        {/* Auth Card */}
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex justify-center gap-4">
+              <Button
+                variant={mode === 'login' ? 'default' : 'outline'}
+                onClick={() => setMode('login')}
+              >
+                Login
+              </Button>
+              <Button
+                variant={mode === 'register' ? 'default' : 'outline'}
+                onClick={() => setMode('register')}
+              >
+                Register
+              </Button>
+            </div>
+
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (mode === 'login') {
+                  await login(email, password);
+                } else {
+                  await register(name, email, password, role as Role, latitude, longitude);
+                }
+              }}
+            >
+              {mode === 'register' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">I am a...</Label>
+                    <Select
+                      value={role}
+                      onValueChange={(value) => setRole(value as Role)}
+                    >
+                      <SelectTrigger id="role">
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PET_OWNER">Pet Owner</SelectItem>
+                        <SelectItem value="VET">Veterinarian</SelectItem>
+                        <SelectItem value="NGO">NGO / Rescue Organization</SelectItem>
+                        <SelectItem value="PUBLIC_USER">Public User</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {role === 'NGO' && (
+                    <div className="space-y-2">
+                      <Label>Organization Location</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleGetLocation}
+                        disabled={geoLoading}
+                        className="w-full"
+                      >
+                        {geoLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Getting location...
+                          </>
+                        ) : (
+                          <>
+                            <MapPin className="mr-2 h-4 w-4" />
+                            Use My Location
+                          </>
+                        )}
+                      </Button>
+                      {latitude && longitude && (
+                        <p className="text-xs text-muted-foreground">
+                          Location set: {latitude.toFixed(4)}°, {longitude.toFixed(4)}°
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isAuthenticating}>
+                {isAuthenticating
+                  ? mode === 'login'
+                    ? 'Logging in...'
+                    : 'Registering...'
+                  : mode === 'login'
+                    ? 'Login'
+                    : 'Create account'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
         {/* Features Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

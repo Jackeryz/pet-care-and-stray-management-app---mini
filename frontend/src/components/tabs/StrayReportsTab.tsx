@@ -9,16 +9,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Plus, MapPin } from 'lucide-react';
-import type { StrayReport, ReportStatus, Role } from '../../backend';
+import type { StrayReport, ReportStatus } from '../../types';
+import { getApiBaseUrl } from '../../hooks/useAuth';
 
 export default function StrayReportsTab() {
-  const { data: reports, isLoading } = useListStrayReports();
+  const { data: allReports, isLoading: allLoading } = useListStrayReports();
   const { data: userProfile } = useGetCallerUserProfile();
   const [showReportForm, setShowReportForm] = useState(false);
 
-  const isNGO = userProfile?.role ? ('ngo' in (userProfile.role as unknown as object)) : false;
+  const isNGO = userProfile?.role === 'NGO';
 
-  if (isLoading) {
+  if (allLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -26,27 +27,38 @@ export default function StrayReportsTab() {
     );
   }
 
+  const reports = allReports || [];
+  const isEmpty = reports.length === 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-2xl font-bold">Stray Animal Reports</h3>
-          <p className="text-muted-foreground">Help rescue animals in need</p>
+          <h3 className="text-2xl font-bold">
+            {isNGO ? 'Received Reports' : 'My Stray Reports'}
+          </h3>
+          <p className="text-muted-foreground">
+            {isNGO 
+              ? 'Reports you have been notified about'
+              : 'Track the status of stray reports you have made'}
+          </p>
         </div>
-        <Dialog open={showReportForm} onOpenChange={setShowReportForm}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Report Stray
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <ReportStrayForm onSuccess={() => setShowReportForm(false)} />
-          </DialogContent>
-        </Dialog>
+        {!isNGO && (
+          <Dialog open={showReportForm} onOpenChange={setShowReportForm}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Report Stray
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <ReportStrayForm onSuccess={() => setShowReportForm(false)} />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
-      {reports && reports.length === 0 ? (
+      {isEmpty ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <img
@@ -54,16 +66,22 @@ export default function StrayReportsTab() {
               alt="Stray animal"
               className="w-64 h-48 object-cover rounded-lg mb-4"
             />
-            <p className="text-muted-foreground mb-4">No stray reports yet</p>
-            <Button onClick={() => setShowReportForm(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Report a Stray Animal
-            </Button>
+            <p className="text-muted-foreground mb-4">
+              {isNGO 
+                ? 'No reports yet' 
+                : 'You haven\'t reported any strays yet'}
+            </p>
+            {!isNGO && (
+              <Button onClick={() => setShowReportForm(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Report a Stray Animal
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {reports?.map((report) => (
+          {reports.map((report) => (
             <StrayReportCard key={report.id} report={report} isNGO={isNGO} />
           ))}
         </div>
@@ -78,16 +96,15 @@ function StrayReportCard({ report, isNGO }: { report: StrayReport; isNGO: boolea
   const [newStatus, setNewStatus] = useState<string>('');
 
   const getStatusBadge = (status: ReportStatus) => {
-    const statusKey = Object.keys(status)[0];
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      reported: 'destructive',
-      verified: 'secondary',
-      rescued: 'default',
-      resolved: 'outline',
+    const variants: Record<ReportStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+      REPORTED: 'destructive',
+      VERIFIED: 'secondary',
+      RESCUED: 'default',
+      RESOLVED: 'outline',
     };
     return (
-      <Badge variant={variants[statusKey] || 'default'}>
-        {statusKey.charAt(0).toUpperCase() + statusKey.slice(1)}
+      <Badge variant={variants[status] || 'default'}>
+        {status.charAt(0) + status.slice(1).toLowerCase()}
       </Badge>
     );
   };
@@ -104,13 +121,15 @@ function StrayReportCard({ report, isNGO }: { report: StrayReport; isNGO: boolea
 
   return (
     <Card>
-      <div className="aspect-video w-full overflow-hidden bg-muted">
-        <img
-          src={URL.createObjectURL(new Blob([new Uint8Array(report.photo)], { type: 'image/jpeg' }))}
-          alt="Stray animal"
-          className="h-full w-full object-cover"
-        />
-      </div>
+      {report.photoUrl && (
+        <div className="aspect-video w-full overflow-hidden bg-muted">
+          <img
+            src={`${getApiBaseUrl()}${report.photoUrl}`}
+            alt="Stray animal"
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
       <CardHeader>
         <div className="flex items-start justify-between">
           <CardTitle className="text-lg">Report #{report.id}</CardTitle>
@@ -141,9 +160,9 @@ function StrayReportCard({ report, isNGO }: { report: StrayReport; isNGO: boolea
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="verified">Verified</SelectItem>
-                    <SelectItem value="rescued">Rescued</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="VERIFIED">Verified</SelectItem>
+                    <SelectItem value="RESCUED">Rescued</SelectItem>
+                    <SelectItem value="RESOLVED">Resolved</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="flex gap-2">
@@ -180,7 +199,25 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
   const reportStray = useReportStray();
+
+  const handleGetLocation = async () => {
+    setGeoLoading(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+      setLatitude(position.coords.latitude);
+      setLongitude(position.coords.longitude);
+    } catch (error) {
+      console.error('Geolocation error:', error);
+    } finally {
+      setGeoLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,6 +231,8 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
         location,
         photo: uint8Array,
         description,
+        latitude,
+        longitude,
       },
       {
         onSuccess,
@@ -217,6 +256,33 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
             onChange={(e) => setLocation(e.target.value)}
             required
           />
+        </div>
+        <div className="space-y-2">
+          <Label>Get Coordinates</Label>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGetLocation}
+            disabled={geoLoading}
+            className="w-full"
+          >
+            {geoLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Getting location...
+              </>
+            ) : (
+              <>
+                <MapPin className="mr-2 h-4 w-4" />
+                Use Current Location
+              </>
+            )}
+          </Button>
+          {latitude && longitude && (
+            <p className="text-xs text-muted-foreground">
+              Coordinates: {latitude.toFixed(4)}°, {longitude.toFixed(4)}°
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>

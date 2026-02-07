@@ -1,70 +1,95 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useActor } from './useActor';
-import type { UserProfile, Pet, StrayReport, AdoptionRecord, Product, Order, MedicalRecord, Role, ReportStatus, AdoptionStatus, OrderStatus } from '../backend';
 import { toast } from 'sonner';
+import { apiFetch, getApiBaseUrl, getAuthToken, useAuth } from './useAuth';
+import type {
+  UserProfile,
+  Pet,
+  MedicalRecord,
+  StrayReport,
+  AdoptionRecord,
+  Product,
+  Order,
+  ReportStatus,
+  AdoptionStatus,
+  OrderStatus,
+} from '../types';
 
-// User Profile Queries
+// ------------- Auth / Profile -------------
+
 export function useGetCallerUserProfile() {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { user, status } = useAuth();
 
-  const query = useQuery<UserProfile | null>({
-    queryKey: ['currentUserProfile'],
-    queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.getCallerUserProfile();
-    },
-    enabled: !!actor && !actorFetching,
-    retry: false,
-  });
+  const isLoading = status === 'initializing' || status === 'authenticating';
+  const isFetched = !isLoading;
 
   return {
-    ...query,
-    isLoading: actorFetching || query.isLoading,
-    isFetched: !!actor && query.isFetched,
+    data: user as UserProfile | null,
+    isLoading,
+    isFetched,
   };
 }
 
+// Profile editing is not yet implemented in the Node backend.
+// This hook exists to keep the API surface compatible but will error if used.
 export function useSaveCallerUserProfile() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (profile: UserProfile) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.saveCallerUserProfile(profile);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      toast.success('Profile saved successfully');
+    mutationFn: async (_profile: UserProfile) => {
+      throw new Error('Profile editing is not implemented yet.');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to save profile');
+      toast.error(error.message || 'Profile editing is not implemented yet.');
     },
   });
 }
 
-// Pet Queries
-export function useListPets() {
-  const { actor, isFetching } = useActor();
+// ------------- Pets & Medical Records -------------
 
+export function useListPets() {
   return useQuery<Pet[]>({
     queryKey: ['pets'],
     queryFn: async () => {
-      if (!actor) return [];
-      return actor.listPets();
+      return apiFetch<Pet[]>('/api/pets');
     },
-    enabled: !!actor && !isFetching,
   });
 }
 
 export function useCreatePet() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ name, breed, age, photo }: { name: string; breed: string; age: number; photo: Uint8Array }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.createPet(name, breed, age, photo);
+    mutationFn: async ({
+      name,
+      breed,
+      age,
+      photo,
+    }: {
+      name: string;
+      breed: string;
+      age: number;
+      photo?: File | null;
+    }) => {
+      const baseUrl = getApiBaseUrl();
+      const token = getAuthToken();
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('breed', breed);
+      formData.append('age', String(age));
+      if (photo) formData.append('photo', photo);
+
+      const res = await fetch(`${baseUrl}/api/pets`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to create pet');
+      }
+
+      return (await res.json()) as Pet;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pets'] });
@@ -76,35 +101,42 @@ export function useCreatePet() {
   });
 }
 
-export function useAssignVetToPet() {
-  const { actor } = useActor();
+export function useDeletePet() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ petId, vetPrincipal }: { petId: number; vetPrincipal: string }) => {
-      if (!actor) throw new Error('Actor not available');
-      const { Principal } = await import('@dfinity/principal');
-      return actor.assignVetToPet(petId, Principal.fromText(vetPrincipal));
+    mutationFn: async (petId: number) => {
+      return apiFetch<{ message: string }>(`/api/pets/${petId}`, {
+        method: 'DELETE',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pets'] });
-      toast.success('Veterinarian assigned successfully');
+      toast.success('Pet deleted successfully');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to assign veterinarian');
+      toast.error(error.message || 'Failed to delete pet');
     },
   });
 }
 
-// Medical Records
 export function useAddMedicalRecord() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ petId, vaccinations, treatments }: { petId: number; vaccinations: string[]; treatments: string[] }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.addMedicalRecord(petId, vaccinations, treatments);
+    mutationFn: async ({
+      petId,
+      vaccinations,
+      treatments,
+    }: {
+      petId: number;
+      vaccinations: string[];
+      treatments: string[];
+    }) => {
+      return apiFetch<MedicalRecord>('/api/pets/medical', {
+        method: 'POST',
+        body: JSON.stringify({ petId, vaccinations, treatments }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['medicalRecords'] });
@@ -117,44 +149,100 @@ export function useAddMedicalRecord() {
 }
 
 export function useGetMedicalRecord(petId: number | null) {
-  const { actor, isFetching } = useActor();
-
   return useQuery<MedicalRecord | null>({
     queryKey: ['medicalRecords', petId],
     queryFn: async () => {
-      if (!actor || petId === null) return null;
+      if (petId === null) return null;
       try {
-        return await actor.getMedicalRecord(petId);
-      } catch (error) {
+        return await apiFetch<MedicalRecord>(`/api/pets/${petId}/medical`);
+      } catch {
         return null;
       }
     },
-    enabled: !!actor && !isFetching && petId !== null,
+    enabled: petId !== null,
   });
 }
 
-// Stray Reports
-export function useListStrayReports() {
-  const { actor, isFetching } = useActor();
+// ------------- Stray Reports -------------
 
+export function useListStrayReports() {
   return useQuery<StrayReport[]>({
     queryKey: ['strayReports'],
     queryFn: async () => {
-      if (!actor) return [];
-      return actor.listStrayReports();
+      const raw = await apiFetch<any[]>('/api/strays');
+      // Map backend shape to frontend type
+      return raw.map((r) => ({
+        id: r.id,
+        location: r.location,
+        description: r.description,
+        photoUrl: r.photoUrl ?? null,
+        status: r.status as ReportStatus,
+        createdAt: r.createdAt,
+        reporterName: r.reporter?.name,
+      })) as StrayReport[];
     },
-    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useGetUserStrayReports() {
+  return useQuery<StrayReport[]>({
+    queryKey: ['userStrayReports'],
+    queryFn: async () => {
+      const raw = await apiFetch<any[]>('/api/strays/my-reports');
+      // Map backend shape to frontend type
+      return raw.map((r) => ({
+        id: r.id,
+        location: r.location,
+        description: r.description,
+        photoUrl: r.photoUrl ?? null,
+        status: r.status as ReportStatus,
+        createdAt: r.createdAt,
+        reporterName: r.reporter?.name,
+      })) as StrayReport[];
+    },
   });
 }
 
 export function useReportStray() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ location, photo, description }: { location: string; photo: Uint8Array; description: string }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.reportStray(location, photo, description);
+    mutationFn: async ({
+      location,
+      photo,
+      description,
+      latitude,
+      longitude,
+    }: {
+      location: string;
+      photo: File;
+      description: string;
+      latitude?: number | null;
+      longitude?: number | null;
+    }) => {
+      const baseUrl = getApiBaseUrl();
+      const token = getAuthToken();
+      const formData = new FormData();
+      formData.append('location', location);
+      formData.append('description', description);
+      formData.append('photo', photo);
+      if (latitude) formData.append('latitude', String(latitude));
+      if (longitude) formData.append('longitude', String(longitude));
+
+      const res = await fetch(`${baseUrl}/api/strays`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to submit report');
+      }
+
+      return (await res.json()) as StrayReport;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['strayReports'] });
@@ -167,13 +255,14 @@ export function useReportStray() {
 }
 
 export function useUpdateReportStatus() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: number; status: ReportStatus }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.updateReportStatus(id, { [status]: null } as any);
+      return apiFetch<StrayReport>(`/api/strays/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['strayReports'] });
@@ -185,28 +274,38 @@ export function useUpdateReportStatus() {
   });
 }
 
-// Adoption Records
+// ------------- Adoption -------------
+
 export function useListAdoptionRecords() {
-  const { actor, isFetching } = useActor();
+  const { user } = useAuth();
 
   return useQuery<AdoptionRecord[]>({
     queryKey: ['adoptionRecords'],
     queryFn: async () => {
-      if (!actor) return [];
-      return actor.listAdoptionRecords();
+      const endpoint = user?.role === 'ADMIN' ? '/api/adoptions/all' : '/api/adoptions';
+      const raw = await apiFetch<any[]>(endpoint);
+      return raw.map(
+        (r) =>
+          ({
+            id: r.id,
+            petId: r.petId,
+            status: r.status,
+          }) as AdoptionRecord,
+      );
     },
-    enabled: !!actor && !isFetching,
+    enabled: !!user,
   });
 }
 
 export function useCreateAdoptionRequest() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (petId: number) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.createAdoptionRequest(petId);
+      return apiFetch<AdoptionRecord>('/api/adoptions', {
+        method: 'POST',
+        body: JSON.stringify({ petId }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
@@ -219,13 +318,14 @@ export function useCreateAdoptionRequest() {
 }
 
 export function useUpdateAdoptionStatus() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: number; status: AdoptionStatus }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.updateAdoptionStatus(id, { [status]: null } as any);
+      return apiFetch<AdoptionRecord>(`/api/adoptions/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
@@ -237,28 +337,36 @@ export function useUpdateAdoptionStatus() {
   });
 }
 
-// Products
-export function useListProducts() {
-  const { actor, isFetching } = useActor();
+// ------------- Products & Orders -------------
 
+export function useListProducts() {
   return useQuery<Product[]>({
     queryKey: ['products'],
     queryFn: async () => {
-      if (!actor) return [];
-      return actor.listProducts();
+      return apiFetch<Product[]>('/api/shop/products');
     },
-    enabled: !!actor && !isFetching,
   });
 }
 
 export function useAddProduct() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ name, description, price, stock }: { name: string; description: string; price: number; stock: number }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.addProduct(name, description, price, stock);
+    mutationFn: async ({
+      name,
+      description,
+      price,
+      stock,
+    }: {
+      name: string;
+      description: string;
+      price: number;
+      stock: number;
+    }) => {
+      return apiFetch<Product>('/api/shop/products', {
+        method: 'POST',
+        body: JSON.stringify({ name, description, price, stock }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -271,13 +379,27 @@ export function useAddProduct() {
 }
 
 export function useUpdateProduct() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, name, description, price, stock }: { id: number; name: string; description: string; price: number; stock: number }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.updateProduct(id, name, description, price, stock);
+    mutationFn: async ({
+      id,
+      name,
+      description,
+      price,
+      stock,
+    }: {
+      id: number;
+      name: string;
+      description: string;
+      price: number;
+      stock: number;
+    }) => {
+      // Simple implementation: treat as full update endpoint
+      return apiFetch<Product>(`/api/shop/products/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name, description, price, stock }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -289,28 +411,39 @@ export function useUpdateProduct() {
   });
 }
 
-// Orders
 export function useListOrders() {
-  const { actor, isFetching } = useActor();
-
   return useQuery<Order[]>({
     queryKey: ['orders'],
     queryFn: async () => {
-      if (!actor) return [];
-      return actor.listOrders();
+      const raw = await apiFetch<any[]>('/api/shop/orders');
+      return raw.map(
+        (o) =>
+          ({
+            id: o.id,
+            total: o.total,
+            status: o.status as OrderStatus,
+            createdAt: o.createdAt,
+            products: (o.items || []).map((item: any) => ({
+              id: item.product.id,
+              name: item.product.name,
+              description: item.product.description,
+              price: item.product.price,
+            })),
+          }) as Order,
+      );
     },
-    enabled: !!actor && !isFetching,
   });
 }
 
 export function useCreateOrder() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (productIds: number[]) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.createOrder(new Uint32Array(productIds));
+      return apiFetch<Order>('/api/shop/orders', {
+        method: 'POST',
+        body: JSON.stringify({ productIds }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -323,13 +456,14 @@ export function useCreateOrder() {
 }
 
 export function useUpdateOrderStatus() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: number; status: OrderStatus }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.updateOrderStatus(id, { [status]: null } as any);
+      return apiFetch<Order>(`/api/shop/orders/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -338,20 +472,6 @@ export function useUpdateOrderStatus() {
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update order status');
     },
-  });
-}
-
-// Admin check
-export function useIsCallerAdmin() {
-  const { actor, isFetching } = useActor();
-
-  return useQuery<boolean>({
-    queryKey: ['isAdmin'],
-    queryFn: async () => {
-      if (!actor) return false;
-      return actor.isCallerAdmin();
-    },
-    enabled: !!actor && !isFetching,
   });
 }
 
