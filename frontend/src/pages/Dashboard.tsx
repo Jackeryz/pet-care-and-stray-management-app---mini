@@ -1,24 +1,17 @@
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useGetCallerUserProfile, useIsCallerAdmin } from '../hooks/useQueries';
+import { useAuth } from '../hooks/useAuth';
+import { useGetCallerUserProfile } from '../hooks/useQueries';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PetsTab from '../components/tabs/PetsTab';
 import StrayReportsTab from '../components/tabs/StrayReportsTab';
 import AdoptionTab from '../components/tabs/AdoptionTab';
 import ShopTab from '../components/tabs/ShopTab';
 import AdminTab from '../components/tabs/AdminTab';
-import WelcomeScreen from '../components/WelcomeScreen';
 import { PawPrint, AlertCircle, Heart, ShoppingBag, Shield } from 'lucide-react';
 
 export default function Dashboard() {
-  const { identity } = useInternetIdentity();
+  const { user } = useAuth();
   const { data: userProfile } = useGetCallerUserProfile();
-  const { data: isAdmin } = useIsCallerAdmin();
-
-  const isAuthenticated = !!identity;
-
-  if (!isAuthenticated) {
-    return <WelcomeScreen />;
-  }
+  const isAdmin = user?.role === 'ADMIN';
 
   return (
     <div className="container py-8">

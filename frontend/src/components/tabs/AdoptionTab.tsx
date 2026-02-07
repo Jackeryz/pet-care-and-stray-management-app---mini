@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Heart } from 'lucide-react';
-import type { AdoptionRecord, Pet } from '../../backend';
+import type { AdoptionRecord, Pet } from '../../types';
+import { getApiBaseUrl } from '../../hooks/useAuth';
 
 export default function AdoptionTab() {
   const { data: adoptionRecords, isLoading: recordsLoading } = useListAdoptionRecords();
@@ -64,13 +65,15 @@ export default function AdoptionTab() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {availablePets.map((pet) => (
               <Card key={pet.id}>
-                <div className="aspect-video w-full overflow-hidden bg-muted">
-                  <img
-                    src={URL.createObjectURL(new Blob([new Uint8Array(pet.photo)], { type: 'image/jpeg' }))}
-                    alt={pet.name}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
+                {pet.photoUrl && (
+                  <div className="aspect-video w-full overflow-hidden bg-muted">
+                    <img
+                      src={`${getApiBaseUrl()}${pet.photoUrl}`}
+                      alt={pet.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                )}
                 <CardHeader>
                   <CardTitle>{pet.name}</CardTitle>
                   <CardDescription>
@@ -117,18 +120,15 @@ export default function AdoptionTab() {
 }
 
 function AdoptionRequestCard({ record, pet }: { record: AdoptionRecord; pet?: Pet }) {
-  const getStatusBadge = (status: any) => {
-    const statusKey = Object.keys(status)[0];
+  const getStatusBadge = (status: AdoptionRecord['status']) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
-      pending: 'secondary',
-      approved: 'default',
-      rejected: 'destructive',
+      PENDING: 'secondary',
+      APPROVED: 'default',
+      REJECTED: 'destructive',
     };
-    return (
-      <Badge variant={variants[statusKey] || 'secondary'}>
-        {statusKey.charAt(0).toUpperCase() + statusKey.slice(1)}
-      </Badge>
-    );
+    const variant = variants[status] || 'secondary';
+    const label = status.charAt(0) + status.slice(1).toLowerCase();
+    return <Badge variant={variant}>{label}</Badge>;
   };
 
   return (

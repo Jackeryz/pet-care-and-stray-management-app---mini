@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, ShoppingCart, Package } from 'lucide-react';
-import type { Product, Order } from '../../backend';
+import type { Product, Order } from '../../types';
 
 export default function ShopTab() {
   const { data: products, isLoading: productsLoading } = useListProducts();
@@ -204,19 +204,16 @@ function ProductCard({ product, onAddToCart }: { product: Product; onAddToCart: 
 }
 
 function OrderCard({ order }: { order: Order }) {
-  const getStatusBadge = (status: any) => {
-    const statusKey = Object.keys(status)[0];
+  const getStatusBadge = (status: Order['status']) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      pending: 'secondary',
-      shipped: 'default',
-      delivered: 'outline',
-      cancelled: 'destructive',
+      PENDING: 'secondary',
+      SHIPPED: 'default',
+      DELIVERED: 'outline',
+      CANCELLED: 'destructive',
     };
-    return (
-      <Badge variant={variants[statusKey] || 'secondary'}>
-        {statusKey.charAt(0).toUpperCase() + statusKey.slice(1)}
-      </Badge>
-    );
+    const variant = variants[status] || 'secondary';
+    const label = status.charAt(0) + status.slice(1).toLowerCase();
+    return <Badge variant={variant}>{label}</Badge>;
   };
 
   return (

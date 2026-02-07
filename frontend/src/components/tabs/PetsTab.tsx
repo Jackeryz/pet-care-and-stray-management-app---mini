@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useListPets, useCreatePet, useGetMedicalRecord, useAddMedicalRecord } from '../../hooks/useQueries';
+import { useListPets, useCreatePet, useDeletePet, useGetMedicalRecord, useAddMedicalRecord } from '../../hooks/useQueries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Plus, Syringe, FileText } from 'lucide-react';
-import type { Pet } from '../../backend';
+import { Loader2, Plus, Syringe, FileText, Trash2 } from 'lucide-react';
+import type { Pet } from '../../types';
+import { getApiBaseUrl } from '../../hooks/useAuth';
 
 export default function PetsTab() {
   const { data: pets, isLoading } = useListPets();
@@ -57,19 +58,24 @@ export default function PetsTab() {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {pets?.map((pet) => (
-            <Card key={pet.id} className="overflow-hidden">
-              <div className="aspect-video w-full overflow-hidden bg-muted">
-                <img
-                  src={URL.createObjectURL(new Blob([new Uint8Array(pet.photo)], { type: 'image/jpeg' }))}
-                  alt={pet.name}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <CardHeader>
-                <CardTitle>{pet.name}</CardTitle>
-                <CardDescription>
-                  {pet.breed} • {pet.age} years old
-                </CardDescription>
+            <Card key={pet.id} className="overflow-hidden relative">
+              {pet.photoUrl && (
+                <div className="aspect-video w-full overflow-hidden bg-muted">
+                  <img
+                    src={`${getApiBaseUrl()}${pet.photoUrl}`}
+                    alt={pet.name}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
+              <CardHeader className="flex flex-row items-start justify-between gap-2">
+                <div className="flex-1">
+                  <CardTitle>{pet.name}</CardTitle>
+                  <CardDescription>
+                    {pet.breed} • {pet.age} years old
+                  </CardDescription>
+                </div>
+                <DeletePetButton petId={pet.id} petName={pet.name} compact={true} />
               </CardHeader>
               <CardContent className="space-y-3">
                 <Button
@@ -109,21 +115,17 @@ function AddPetForm({ onSuccess }: { onSuccess: () => void }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!photo) return;
-
-    const arrayBuffer = await photo.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
 
     createPet.mutate(
       {
         name,
         breed,
-        age: parseInt(age),
-        photo: uint8Array,
+        age: parseInt(age, 10),
+        photo: photo || undefined,
       },
       {
         onSuccess,
-      }
+      },
     );
   };
 
@@ -167,13 +169,12 @@ function AddPetForm({ onSuccess }: { onSuccess: () => void }) {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="photo">Photo</Label>
+          <Label htmlFor="photo">Photo (Optional)</Label>
           <Input
             id="photo"
             type="file"
             accept="image/*"
             onChange={(e) => setPhoto(e.target.files?.[0] || null)}
-            required
           />
         </div>
         <Button type="submit" className="w-full" disabled={createPet.isPending}>
@@ -312,6 +313,107 @@ function AddMedicalRecordForm({ petId }: { petId: number }) {
         )}
       </Button>
     </form>
+  );
+}
+
+function DeletePetButton({ petId, petName, compact = false }: { petId: number; petName: string; compact?: boolean }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const deletePet = useDeletePet();
+
+  const handleDelete = () => {
+    deletePet.mutate(petId, {
+      onSuccess: () => {
+        setShowConfirm(false);
+      },
+    });
+  };
+
+  if (compact) {
+    return (
+      <>
+        {!showConfirm ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => setShowConfirm(true)}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        ) : (
+          <div className="absolute top-2 right-2 bg-white border rounded-lg p-3 shadow-lg z-10 w-48">
+            <p className="text-xs text-muted-foreground mb-2">
+              Delete {petName}?
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                size="sm"
+                className="flex-1"
+                onClick={handleDelete}
+                disabled={deletePet.isPending}
+              >
+                {deletePet.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  'Delete'
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => setShowConfirm(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {!showConfirm ? (
+        <Button
+          variant="destructive"
+          className="w-full"
+          onClick={() => setShowConfirm(true)}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete Pet
+        </Button>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete {petName}? This action cannot be undone.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={handleDelete}
+              disabled={deletePet.isPending}
+            >
+              {deletePet.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Delete'
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowConfirm(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

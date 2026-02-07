@@ -1,22 +1,17 @@
-import { useInternetIdentity } from './hooks/useInternetIdentity';
-import { useGetCallerUserProfile } from './hooks/useQueries';
+import { useAuth } from './hooks/useAuth';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from 'next-themes';
 import Header from './components/Header';
 import Footer from './components/Footer';
-import ProfileSetup from './components/ProfileSetup';
 import Dashboard from './pages/Dashboard';
 import { Loader2 } from 'lucide-react';
+import WelcomeScreen from './components/WelcomeScreen';
 
 export default function App() {
-  const { identity, loginStatus } = useInternetIdentity();
-  const { data: userProfile, isLoading: profileLoading, isFetched } = useGetCallerUserProfile();
+  const { user, status } = useAuth();
 
-  const isAuthenticated = !!identity;
-  const isInitializing = loginStatus === 'initializing';
-
-  // Show profile setup if authenticated but no profile exists
-  const showProfileSetup = isAuthenticated && !profileLoading && isFetched && userProfile === null;
+  const isAuthenticated = !!user;
+  const isInitializing = status === 'initializing' || status === 'authenticating';
 
   if (isInitializing) {
     return (
@@ -37,11 +32,7 @@ export default function App() {
       <div className="flex min-h-screen flex-col">
         <Header />
         <main className="flex-1">
-          {showProfileSetup ? (
-            <ProfileSetup />
-          ) : (
-            <Dashboard />
-          )}
+          {isAuthenticated ? <Dashboard /> : <WelcomeScreen />}
         </main>
         <Footer />
       </div>

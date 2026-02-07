@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { useListProducts, useAddProduct, useUpdateProduct, useListOrders, useUpdateOrderStatus, useListAdoptionRecords, useUpdateAdoptionStatus } from '../../hooks/useQueries';
+import {
+  useListProducts,
+  useAddProduct,
+  useUpdateProduct,
+  useListOrders,
+  useUpdateOrderStatus,
+  useListAdoptionRecords,
+  useUpdateAdoptionStatus,
+} from '../../hooks/useQueries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -10,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Package, ShoppingBag, Heart } from 'lucide-react';
-import type { Product, Order, AdoptionRecord } from '../../backend';
+import type { Product, Order, AdoptionRecord } from '../../types';
 
 export default function AdminTab() {
   return (
@@ -226,7 +234,7 @@ function OrdersManagement() {
 
   const handleStatusUpdate = (orderId: number, status: string) => {
     updateStatus.mutate(
-      { id: orderId, status: { [status]: null } as any },
+      { id: orderId, status: status as any },
       {
         onSuccess: () => setUpdatingOrder(null),
       }
@@ -247,7 +255,7 @@ function OrdersManagement() {
                   </CardDescription>
                 </div>
                 <Badge>
-                  {Object.keys(order.status)[0].charAt(0).toUpperCase() + Object.keys(order.status)[0].slice(1)}
+                  {order.status.charAt(0) + order.status.slice(1).toLowerCase()}
                 </Badge>
               </div>
             </CardHeader>
@@ -265,9 +273,9 @@ function OrdersManagement() {
                     <SelectValue placeholder="Update status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="shipped">Shipped</SelectItem>
-                    <SelectItem value="delivered">Delivered</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="SHIPPED">Shipped</SelectItem>
+                    <SelectItem value="DELIVERED">Delivered</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
               ) : (
@@ -308,7 +316,7 @@ function AdoptionsManagement() {
 
   const handleStatusUpdate = (adoptionId: number, status: string) => {
     updateStatus.mutate(
-      { id: adoptionId, status: { [status]: null } as any },
+      { id: adoptionId, status: status as any },
       {
         onSuccess: () => setUpdatingAdoption(null),
       }
@@ -327,7 +335,7 @@ function AdoptionsManagement() {
                   <CardDescription>Pet ID: {adoption.petId}</CardDescription>
                 </div>
                 <Badge>
-                  {Object.keys(adoption.status)[0].charAt(0).toUpperCase() + Object.keys(adoption.status)[0].slice(1)}
+                  {adoption.status.charAt(0) + adoption.status.slice(1).toLowerCase()}
                 </Badge>
               </div>
             </CardHeader>
@@ -338,8 +346,8 @@ function AdoptionsManagement() {
                     <SelectValue placeholder="Update status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="approved">Approve</SelectItem>
-                    <SelectItem value="rejected">Reject</SelectItem>
+                    <SelectItem value="APPROVED">Approve</SelectItem>
+                    <SelectItem value="REJECTED">Reject</SelectItem>
                   </SelectContent>
                 </Select>
               ) : (

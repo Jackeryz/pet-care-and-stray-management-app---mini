@@ -1,0 +1,13 @@
+How to run everything now
+Backend (Node, in backend)
+cd backend
+npm install
+npm run prisma:migrate
+npm run prisma:generate
+npm start (default on port 3000)
+
+
+Frontend (React/Vite, in frontend)
+cd frontend
+npm install
+npm run dev (Vite dev server, default port 5173)
