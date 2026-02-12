@@ -544,3 +544,26 @@ export function useCreateBlogPost() {
   });
 }
 
+// ------------- Username Management -------------
+
+export function useUpdateUsername() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (username: string) => {
+      return apiFetch<any>('/api/auth/username', {
+        method: 'PATCH',
+        body: JSON.stringify({ username }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['callerUserProfile'] });
+      toast.success('Username updated successfully');
+    },
+    onError: (error: Error) => {
+      const message = error.message || 'Failed to update username';
+      toast.error(message);
+    },
+  });
+}
+

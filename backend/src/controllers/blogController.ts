@@ -2,7 +2,6 @@ import { Response } from "express";
 import { AuthRequest } from "../middlewares/auth";
 import { prisma } from "../database/db";
 import {
-  generateUniqueUsername,
   createBlogPost,
   getBlogPosts,
   getUserBlogPosts,
@@ -31,7 +30,7 @@ export const createPost = async (
     // Get or generate username for user
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true },
+      select: { username: true },
     });
 
     if (!user) {
@@ -39,19 +38,12 @@ export const createPost = async (
       return;
     }
 
-    // Check if user already has a username
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { username: true },
-    });
-
-    let username =
-      (existingUser as any)?.username || generateUniqueUsername();
-
-    // If no username exists, update user with generated one
-    if (!(existingUser as any)?.username) {
-      await prisma.$executeRaw`UPDATE "User" SET username = ${username} WHERE id = ${userId}`;
+    if (!user.username) {
+      res.status(400).json({ error: "Please set a username before posting. Go to settings to create one." });
+      return;
     }
+
+    const username = user.username;
 
     // Create blog post
     const postId = createBlogPost(userId, username, role, content);

@@ -17,6 +17,7 @@ model User {
   name     String
   role     String // "ADMIN", "PET_OWNER", "VET", "NGO", "PUBLIC"
   username String? @unique
+  lastUsernameChange DateTime?
 
   pets         Pet[]            @relation("OwnerPets")
   assignedPets Pet[]            @relation("VetPets")

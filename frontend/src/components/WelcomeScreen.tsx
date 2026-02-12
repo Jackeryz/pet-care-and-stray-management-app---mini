@@ -16,6 +16,7 @@ export default function WelcomeScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [role, setRole] = useState<Role>('PUBLIC_USER');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
@@ -77,7 +78,7 @@ export default function WelcomeScreen() {
                 if (mode === 'login') {
                   await login(email, password);
                 } else {
-                  await register(name, email, password, role as Role, latitude, longitude);
+                  await register(name, email, password, role as Role, latitude, longitude, username || undefined);
                 }
               }}
             >
@@ -138,6 +139,24 @@ export default function WelcomeScreen() {
                       )}
                     </div>
                   )}
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username (Optional - auto-generated if not provided)</Label>
+                    <Input
+                      id="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="3-20 characters (alphanumeric, dash, underscore)"
+                      pattern="^[a-zA-Z0-9_-]{3,20}$"
+                    />
+                    {username && (
+                      <p className="text-xs text-muted-foreground">
+                        {username.length < 3 && '❌ Too short (minimum 3 characters)'}
+                        {username.length > 20 && '❌ Too long (maximum 20 characters)'}
+                        {username.length >= 3 && username.length <= 20 && !!/^[a-zA-Z0-9_-]+$/.test(username) && '✓ Username looks good'}
+                        {username.length >= 3 && username.length <= 20 && !/^[a-zA-Z0-9_-]+$/.test(username) && '❌ Only alphanumeric, dash, and underscore allowed'}
+                      </p>
+                    )}
+                  </div>
                 </>
               )}
 
