@@ -346,7 +346,7 @@ export function useGetChatMessages(adoptionRecordId: number) {
       return apiFetch<any[]>(`/api/chat/${adoptionRecordId}`);
     },
     enabled: !!adoptionRecordId,
-    refetchInterval: 3000, // Poll for new messages every 3 seconds
+    refetchInterval: 500, // Poll every 500ms for near real-time updates
   });
 }
 
@@ -384,7 +384,7 @@ export function useGetUnreadChatCount() {
     queryFn: async () => {
       return apiFetch('/api/chat/count/unread');
     },
-    refetchInterval: 5000, // Poll every 5 seconds
+    refetchInterval: 1000, // Poll every 1 second for unread counts
   });
 }
 
