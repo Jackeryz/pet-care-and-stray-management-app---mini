@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Send, MessageCircle } from 'lucide-react';
 import { useGetChatMessages, useSendChatMessage, useGetCallerUserProfile } from '../hooks/useQueries';
+import { useAdoptionChat } from '../hooks/useSocket';
 import { toast } from 'sonner';
 
 interface AdoptionChatModalProps {
@@ -20,11 +21,61 @@ export const AdoptionChatModal: React.FC<AdoptionChatModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { data: messages, isLoading: messagesLoading } = useGetChatMessages(adoptionRecordId);
-  const { mutate: sendMessage, isPending: isSending } = useSendChatMessage();
   const { data: currentUser } = useGetCallerUserProfile();
+  const { joinChat, leaveChat, sendMessage, onNewMessage, onUserJoined } = useAdoptionChat(adoptionRecordId);
+  const [messages, setMessages] = useState<any[]>([]);
   const [messageText, setMessageText] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isInitializedRef = useRef(false);
+
+  // Load initial messages from API
+  useEffect(() => {
+    if (!isOpen || isInitializedRef.current) return;
+
+    const loadMessages = async () => {
+      try {
+        const response = await fetch(
+          `/api/chat/${adoptionRecordId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`,
+            },
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setMessages(data);
+          isInitializedRef.current = true;
+        }
+      } catch (error) {
+        console.error('Error loading messages:', error);
+      }
+    };
+
+    loadMessages();
+  }, [isOpen, adoptionRecordId]);
+
+  // Join chat and set up socket listeners
+  useEffect(() => {
+    if (!isOpen || !currentUser) return;
+
+    joinChat(currentUser.id);
+
+    // Listen for new messages
+    onNewMessage((message: any) => {
+      setMessages((prev) => [...prev, message]);
+    });
+
+    // Listen for user joined
+    onUserJoined(() => {
+      console.log('Other user is now online');
+    });
+
+    return () => {
+      leaveChat();
+    };
+  }, [isOpen, currentUser, joinChat, leaveChat, onNewMessage, onUserJoined]);
 
   // Auto-scroll to bottom when messages update
   useEffect(() => {
@@ -33,20 +84,28 @@ export const AdoptionChatModal: React.FC<AdoptionChatModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (messageText.trim().length === 0) {
       toast.error('Message cannot be empty');
       return;
     }
 
-    sendMessage(
-      { adoptionRecordId, message: messageText },
-      {
-        onSuccess: () => {
-          setMessageText('');
-        },
-      }
-    );
+    if (!currentUser) {
+      toast.error('User not authenticated');
+      return;
+    }
+
+    setIsSending(true);
+
+    try {
+      sendMessage(currentUser.id, messageText);
+      setMessageText('');
+    } catch (error) {
+      toast.error('Failed to send message');
+      console.error(error);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -78,11 +137,7 @@ export const AdoptionChatModal: React.FC<AdoptionChatModalProps> = ({
 
         {/* Messages Container */}
         <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-          {messagesLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-gray-500">Loading messages...</div>
-            </div>
-          ) : messages && messages.length > 0 ? (
+          {messages && messages.length > 0 ? (
             <div className="space-y-4">
               {messages.map((msg) => {
                 const isCurrentUser = msg.senderId === currentUser?.id;

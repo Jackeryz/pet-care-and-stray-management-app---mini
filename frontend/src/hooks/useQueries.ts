@@ -337,46 +337,11 @@ export function useUpdateAdoptionStatus() {
   });
 }
 
-// ------------- Chat Messages (Adoption) -------------
+// ------------- Chat Messages (Adoption) - Using WebSocket now via useSocket hook -----------
 
-export function useGetChatMessages(adoptionRecordId: number) {
-  return useQuery<any[]>({
-    queryKey: ['chatMessages', adoptionRecordId],
-    queryFn: async () => {
-      return apiFetch<any[]>(`/api/chat/${adoptionRecordId}`);
-    },
-    enabled: !!adoptionRecordId,
-    refetchInterval: 500, // Poll every 500ms for near real-time updates
-  });
-}
-
-export function useSendChatMessage() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      adoptionRecordId,
-      message,
-    }: {
-      adoptionRecordId: number;
-      message: string;
-    }) => {
-      return apiFetch<any>(`/api/chat/${adoptionRecordId}/send`, {
-        method: 'POST',
-        body: JSON.stringify({ message }),
-      });
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ['chatMessages', variables.adoptionRecordId],
-      });
-      queryClient.invalidateQueries({ queryKey: ['unreadChatCount'] });
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to send message');
-    },
-  });
-}
+// The chat now uses WebSocket (Socket.io) for real-time messaging.
+// See useSocket hook for Socket.io implementation.
+// REST endpoints are kept as fallback for initial message loading and unread counts.
 
 export function useGetUnreadChatCount() {
   return useQuery<{ totalUnread: number; adoptionUnreadCounts: Record<string, number> }>({
