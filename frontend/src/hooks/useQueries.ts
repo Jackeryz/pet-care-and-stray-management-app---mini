@@ -491,3 +491,56 @@ export function useUpdateOrderStatus() {
   });
 }
 
+// ------------- Blog Posts -------------
+
+export interface BlogPost {
+  id: number;
+  userId: string;
+  username: string;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+export function useGetBlogPosts(page: number = 1) {
+  return useQuery<{ posts: BlogPost[]; hasMore: boolean; page: number; limit: number }>({
+    queryKey: ['blogPosts', page],
+    queryFn: async () => {
+      return apiFetch(`/api/blog?page=${page}`);
+    },
+  });
+}
+
+export function useGetMyBlogPosts() {
+  const { user } = useAuth();
+
+  return useQuery<BlogPost[]>({
+    queryKey: ['myBlogPosts'],
+    queryFn: async () => {
+      return apiFetch('/api/blog/my-posts');
+    },
+    enabled: !!user,
+  });
+}
+
+export function useCreateBlogPost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (content: string) => {
+      return apiFetch<BlogPost>('/api/blog', {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blogPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['myBlogPosts'] });
+      toast.success('Post created successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create post');
+    },
+  });
+}
+

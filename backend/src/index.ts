@@ -13,6 +13,7 @@ import dotenv from "dotenv";
 import { ensureSqliteSchema } from './database/sqliteSetup';
 import notificationRoutes from './routes/notificationRoutes';
 import chatRoutes from './routes/chatRoutes';
+import blogRoutes from './routes/blogRoutes';
 import { insertChatMessage, getChatMessages, markChatMessagesAsRead } from './database/sqliteSetup';
 import { prisma } from './database/db';
 
@@ -41,6 +42,7 @@ app.use("/api/shop", shopRoutes);
 app.use("/api/adoptions", adoptionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/blog', blogRoutes);
 
 // Create HTTP server with Socket.io
 const server = createServer(app);

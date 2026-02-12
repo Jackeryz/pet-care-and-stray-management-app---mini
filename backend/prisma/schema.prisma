@@ -16,6 +16,7 @@ model User {
   password String // Hashed password
   name     String
   role     String // "ADMIN", "PET_OWNER", "VET", "NGO", "PUBLIC"
+  username String? @unique
 
   pets         Pet[]            @relation("OwnerPets")
   assignedPets Pet[]            @relation("VetPets")

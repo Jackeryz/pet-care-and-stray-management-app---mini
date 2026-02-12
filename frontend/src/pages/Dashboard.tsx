@@ -6,7 +6,8 @@ import StrayReportsTab from '../components/tabs/StrayReportsTab';
 import AdoptionTab from '../components/tabs/AdoptionTab';
 import ShopTab from '../components/tabs/ShopTab';
 import AdminTab from '../components/tabs/AdminTab';
-import { PawPrint, AlertCircle, Heart, ShoppingBag, Shield } from 'lucide-react';
+import BlogTab from '../components/tabs/BlogTab';
+import { PawPrint, AlertCircle, Heart, ShoppingBag, Shield, MessageSquare } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -25,7 +26,7 @@ export default function Dashboard() {
       </div>
 
       <Tabs defaultValue="pets" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-6">
           <TabsTrigger value="pets" className="gap-2">
             <PawPrint className="h-4 w-4" />
             <span className="hidden sm:inline">My Pets</span>
@@ -41,6 +42,10 @@ export default function Dashboard() {
           <TabsTrigger value="shop" className="gap-2">
             <ShoppingBag className="h-4 w-4" />
             <span className="hidden sm:inline">Shop</span>
+          </TabsTrigger>
+          <TabsTrigger value="blog" className="gap-2">
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Blog</span>
           </TabsTrigger>
           {isAdmin && (
             <TabsTrigger value="admin" className="gap-2">
@@ -64,6 +69,10 @@ export default function Dashboard() {
 
         <TabsContent value="shop" className="space-y-4">
           <ShopTab />
+        </TabsContent>
+
+        <TabsContent value="blog" className="space-y-4">
+          <BlogTab />
         </TabsContent>
 
         {isAdmin && (

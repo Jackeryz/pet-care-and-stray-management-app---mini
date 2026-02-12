@@ -46,6 +46,26 @@ export function ensureSqliteSchema(dbPath = path.join(process.cwd(), 'dev.db')) 
         FOREIGN KEY(senderId) REFERENCES "User"(id)
       )`
     ).run();
+
+    // Add username column to User table if it doesn't exist
+    try {
+      db.prepare('ALTER TABLE "User" ADD COLUMN username TEXT UNIQUE').run();
+    } catch (e) {
+      // ignore if already exists
+    }
+
+    // Create blog posts table
+    db.prepare(
+      `CREATE TABLE IF NOT EXISTS blog_posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userId TEXT NOT NULL,
+        username TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(userId) REFERENCES "User"(id)
+      )`
+    ).run();
   } finally {
     db.close();
   }
@@ -156,6 +176,73 @@ export function getUnreadChatCount(
     );
     const result = stmt.get(adoptionRecordId, userId) as { count: number };
     return result?.count || 0;
+  } finally {
+    db.close();
+  }
+}
+
+export function generateUniqueUsername(dbPath = path.join(process.cwd(), 'dev.db')) {
+  const db = new Database(dbPath);
+  try {
+    const adjectives = ['Swift', 'Silent', 'Brave', 'Clever', 'Happy', 'Jolly', 'Noble', 'Wise', 'Keen', 'Bright'];
+    const animals = ['Tiger', 'Eagle', 'Wolf', 'Fox', 'Bear', 'Panda', 'Lion', 'Hawk', 'Dolphin', 'Phoenix'];
+    
+    let username = '';
+    let exists = true;
+    while (exists) {
+      const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const animal = animals[Math.floor(Math.random() * animals.length)];
+      const num = Math.floor(Math.random() * 1000);
+      username = `${adj}${animal}${num}`;
+      
+      const check = db.prepare('SELECT id FROM "User" WHERE username = ?').get(username);
+      exists = !!check;
+    }
+    
+    return username;
+  } finally {
+    db.close();
+  }
+}
+
+export function createBlogPost(
+  userId: string,
+  username: string,
+  role: string,
+  content: string,
+  dbPath = path.join(process.cwd(), 'dev.db')
+) {
+  const db = new Database(dbPath);
+  try {
+    const stmt = db.prepare(
+      'INSERT INTO blog_posts (userId, username, role, content) VALUES (?, ?, ?, ?)'
+    );
+    const info = stmt.run(userId, username, role, content);
+    return info.lastInsertRowid;
+  } finally {
+    db.close();
+  }
+}
+
+export function getBlogPosts(limit = 50, offset = 0, dbPath = path.join(process.cwd(), 'dev.db')) {
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    const stmt = db.prepare(
+      'SELECT id, userId, username, role, content, createdAt FROM blog_posts ORDER BY createdAt DESC LIMIT ? OFFSET ?'
+    );
+    return stmt.all(limit, offset);
+  } finally {
+    db.close();
+  }
+}
+
+export function getUserBlogPosts(userId: string, dbPath = path.join(process.cwd(), 'dev.db')) {
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    const stmt = db.prepare(
+      'SELECT id, userId, username, role, content, createdAt FROM blog_posts WHERE userId = ? ORDER BY createdAt DESC'
+    );
+    return stmt.all(userId);
   } finally {
     db.close();
   }
