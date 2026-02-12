@@ -337,6 +337,57 @@ export function useUpdateAdoptionStatus() {
   });
 }
 
+// ------------- Chat Messages (Adoption) -------------
+
+export function useGetChatMessages(adoptionRecordId: number) {
+  return useQuery<any[]>({
+    queryKey: ['chatMessages', adoptionRecordId],
+    queryFn: async () => {
+      return apiFetch<any[]>(`/api/chat/${adoptionRecordId}`);
+    },
+    enabled: !!adoptionRecordId,
+    refetchInterval: 3000, // Poll for new messages every 3 seconds
+  });
+}
+
+export function useSendChatMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      adoptionRecordId,
+      message,
+    }: {
+      adoptionRecordId: number;
+      message: string;
+    }) => {
+      return apiFetch<any>(`/api/chat/${adoptionRecordId}/send`, {
+        method: 'POST',
+        body: JSON.stringify({ message }),
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['chatMessages', variables.adoptionRecordId],
+      });
+      queryClient.invalidateQueries({ queryKey: ['unreadChatCount'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to send message');
+    },
+  });
+}
+
+export function useGetUnreadChatCount() {
+  return useQuery<{ totalUnread: number; adoptionUnreadCounts: Record<string, number> }>({
+    queryKey: ['unreadChatCount'],
+    queryFn: async () => {
+      return apiFetch('/api/chat/count/unread');
+    },
+    refetchInterval: 5000, // Poll every 5 seconds
+  });
+}
+
 // ------------- Products & Orders -------------
 
 export function useListProducts() {

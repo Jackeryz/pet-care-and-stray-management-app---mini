@@ -32,6 +32,20 @@ export function ensureSqliteSchema(dbPath = path.join(process.cwd(), 'dev.db')) 
         read INTEGER DEFAULT 0
       )`
     ).run();
+
+    // Create chat messages table for adoption communications
+    db.prepare(
+      `CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        adoptionRecordId INTEGER NOT NULL,
+        senderId TEXT NOT NULL,
+        message TEXT NOT NULL,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        isRead INTEGER DEFAULT 0,
+        FOREIGN KEY(adoptionRecordId) REFERENCES "AdoptionRecord"(id),
+        FOREIGN KEY(senderId) REFERENCES "User"(id)
+      )`
+    ).run();
   } finally {
     db.close();
   }
@@ -63,6 +77,85 @@ export function listNotificationsForNgo(ngoId: string, dbPath = path.join(proces
   try {
     const stmt = db.prepare('SELECT id, ngoId, reportId, message, createdAt, read FROM notifications WHERE ngoId = ? ORDER BY createdAt DESC');
     return stmt.all(ngoId);
+  } finally {
+    db.close();
+  }
+}
+
+export function insertChatMessage(
+  adoptionRecordId: number,
+  senderId: string,
+  message: string,
+  dbPath = path.join(process.cwd(), 'dev.db')
+) {
+  const db = new Database(dbPath);
+  try {
+    const stmt = db.prepare(
+      'INSERT INTO chat_messages (adoptionRecordId, senderId, message) VALUES (?, ?, ?)'
+    );
+    const info = stmt.run(adoptionRecordId, senderId, message);
+    return info.lastInsertRowid;
+  } finally {
+    db.close();
+  }
+}
+
+export function getChatMessages(
+  adoptionRecordId: number,
+  dbPath = path.join(process.cwd(), 'dev.db')
+) {
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    const stmt = db.prepare(
+      `SELECT 
+        cm.id, 
+        cm.adoptionRecordId, 
+        cm.senderId, 
+        cm.message, 
+        cm.createdAt, 
+        cm.isRead,
+        u.name as senderName,
+        u.email as senderEmail
+      FROM chat_messages cm
+      JOIN "User" u ON cm.senderId = u.id
+      WHERE cm.adoptionRecordId = ? 
+      ORDER BY cm.createdAt ASC`
+    );
+    return stmt.all(adoptionRecordId);
+  } finally {
+    db.close();
+  }
+}
+
+export function markChatMessagesAsRead(
+  adoptionRecordId: number,
+  userId: string,
+  dbPath = path.join(process.cwd(), 'dev.db')
+) {
+  const db = new Database(dbPath);
+  try {
+    const stmt = db.prepare(
+      'UPDATE chat_messages SET isRead = 1 WHERE adoptionRecordId = ? AND senderId != ? AND isRead = 0'
+    );
+    const info = stmt.run(adoptionRecordId, userId);
+    return info.changes;
+  } finally {
+    db.close();
+  }
+}
+
+export function getUnreadChatCount(
+  adoptionRecordId: number,
+  userId: string,
+  dbPath = path.join(process.cwd(), 'dev.db')
+) {
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    const stmt = db.prepare(
+      'SELECT COUNT(*) as count FROM chat_messages WHERE adoptionRecordId = ? AND senderId != ? AND isRead = 0'
+    );
+    const result = stmt.get(adoptionRecordId, userId) as { count: number };
+    return result?.count || 0;
   } finally {
     db.close();
   }

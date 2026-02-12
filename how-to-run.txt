@@ -4,10 +4,21 @@ cd backend
 npm install
 npm run prisma:migrate
 npm run prisma:generate
-npm start (default on port 3000)
+npm run dev (runs on 0.0.0.0:3000, accessible from other devices)
 
 
 Frontend (React/Vite, in frontend)
 cd frontend
 npm install
-npm run dev (Vite dev server, default port 5173)
+Update .env file with your backend IP address:
+  VITE_BACKEND_URL=http://<your-backend-ip>:3000
+npm run dev (Vite dev server on 0.0.0.0:5173, accessible from other devices)
+
+
+Access on Mobile Device
+1. Find the IP address of the machine running the frontend:
+   - Windows: Run `ipconfig` in terminal and look for "IPv4 Address" (usually 10.x.x.x)
+   - Mac/Linux: Run `ifconfig` and look for inet address (usually 192.168.x.x)
+2. On your mobile device, open: http://<frontend-machine-ip>:5173
+   Example: http://10.119.147.144:5173
+3. The frontend will connect to the backend at the IP specified in .env file

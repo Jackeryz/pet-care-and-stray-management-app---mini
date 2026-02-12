@@ -58,7 +58,16 @@ export const listMyAdoptions = async (
     const userId = req.user!.id;
 
     const records = await prisma.adoptionRecord.findMany({
-      where: { applicantId: userId },
+      where: {
+        OR: [
+          { applicantId: userId }, // Adoptions I've applied for
+          { pet: { ownerId: userId } }, // Adoptions for my pets
+        ],
+      },
+      include: {
+        pet: { include: { owner: true } },
+        applicant: true,
+      },
       orderBy: { id: "desc" },
     });
 
