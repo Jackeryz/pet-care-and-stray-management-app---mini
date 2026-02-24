@@ -14,6 +14,7 @@ import { ensureSqliteSchema } from './database/sqliteSetup';
 import notificationRoutes from './routes/notificationRoutes';
 import chatRoutes from './routes/chatRoutes';
 import blogRoutes from './routes/blogRoutes';
+import vaccinationRoutes from './routes/vaccinationRoutes';
 import { insertChatMessage, getChatMessages, markChatMessagesAsRead } from './database/sqliteSetup';
 import { prisma } from './database/db';
 
@@ -43,6 +44,7 @@ app.use("/api/adoptions", adoptionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/vaccinations', vaccinationRoutes);
 
 // Create HTTP server with Socket.io
 const server = createServer(app);

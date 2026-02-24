@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2, Plus, Syringe, FileText, Trash2 } from 'lucide-react';
 import type { Pet } from '../../types';
 import { getApiBaseUrl } from '../../hooks/useAuth';
+import VaccinationScheduler from '../VaccinationScheduler';
 
 export default function PetsTab() {
   const { data: pets, isLoading } = useListPets();
@@ -211,13 +212,17 @@ function MedicalRecordView({ pet }: { pet: Pet }) {
         <DialogDescription>View and manage medical history</DialogDescription>
       </DialogHeader>
 
-      <div className="space-y-4">
+      <div className="space-y-4 max-h-96 overflow-y-auto">
+        <VaccinationScheduler petId={pet.id} petName={pet.name} />
+
+        <Separator />
+
         {medicalRecord ? (
           <>
             <div>
               <h4 className="font-semibold mb-2 flex items-center gap-2">
                 <Syringe className="h-4 w-4" />
-                Vaccinations
+                Past Vaccinations
               </h4>
               <div className="flex flex-wrap gap-2">
                 {medicalRecord.vaccinations.length > 0 ? (

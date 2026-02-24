@@ -22,3 +22,6 @@ Access on Mobile Device
 2. On your mobile device, open: http://<frontend-machine-ip>:5173
    Example: http://10.119.147.144:5173
 3. The frontend will connect to the backend at the IP specified in .env file
+
+if you're trying to restart backend but the port is already being used from before
+$pid = (netstat -ano | findstr :3000)[0] -split '\s+' | Select-Object -Last 1; Stop-Process -Id $pid -Force

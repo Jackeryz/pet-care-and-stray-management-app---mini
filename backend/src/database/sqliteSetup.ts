@@ -247,3 +247,40 @@ export function getUserBlogPosts(userId: string, dbPath = path.join(process.cwd(
     db.close();
   }
 }
+// Vaccination reminder functions
+export function getVaccinationsDueReminder(dbPath = path.join(process.cwd(), 'dev.db')) {
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    // Get vaccinations due within 24 hours that haven't had a reminder sent
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    
+    const stmt = db.prepare(
+      `SELECT 
+        sv.id, sv.petId, sv.vaccineName, sv.scheduledDate,
+        p.ownerId, u.email, u.name
+      FROM ScheduledVaccination sv
+      JOIN Pet p ON sv.petId = p.id
+      JOIN "User" u ON p.ownerId = u.id
+      WHERE sv.status = 'PENDING' 
+        AND sv.reminderSent = 0
+        AND sv.scheduledDate >= datetime(?)
+        AND sv.scheduledDate <= datetime(?)
+      ORDER BY sv.scheduledDate ASC`
+    );
+    
+    return stmt.all(now.toISOString(), tomorrow.toISOString()) as any[];
+  } finally {
+    db.close();
+  }
+}
+
+export function markVaccinationReminderSent(vaccinationId: number, dbPath = path.join(process.cwd(), 'dev.db')) {
+  const db = new Database(dbPath);
+  try {
+    const stmt = db.prepare('UPDATE ScheduledVaccination SET reminderSent = 1 WHERE id = ?');
+    stmt.run(vaccinationId);
+  } finally {
+    db.close();
+  }
+}

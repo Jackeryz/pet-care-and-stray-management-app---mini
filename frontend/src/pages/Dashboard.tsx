@@ -8,7 +8,8 @@ import ShopTab from '../components/tabs/ShopTab';
 import AdminTab from '../components/tabs/AdminTab';
 import BlogTab from '../components/tabs/BlogTab';
 import SettingsTab from '../components/tabs/SettingsTab';
-import { PawPrint, AlertCircle, Heart, ShoppingBag, Shield, MessageSquare, Settings } from 'lucide-react';
+import VaccinationsTab from '../components/tabs/VaccinationsTab';
+import { PawPrint, AlertCircle, Heart, ShoppingBag, Shield, MessageSquare, Settings, Syringe } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -27,10 +28,14 @@ export default function Dashboard() {
       </div>
 
       <Tabs defaultValue="pets" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6 lg:grid-cols-7">
+        <TabsList className="grid w-full grid-cols-7 lg:grid-cols-8">
           <TabsTrigger value="pets" className="gap-2">
             <PawPrint className="h-4 w-4" />
             <span className="hidden sm:inline">My Pets</span>
+          </TabsTrigger>
+          <TabsTrigger value="vaccinations" className="gap-2">
+            <Syringe className="h-4 w-4" />
+            <span className="hidden sm:inline">Vaccines</span>
           </TabsTrigger>
           <TabsTrigger value="strays" className="gap-2">
             <AlertCircle className="h-4 w-4" />
@@ -64,8 +69,8 @@ export default function Dashboard() {
           <PetsTab />
         </TabsContent>
 
-        <TabsContent value="strays" className="space-y-4">
-          <StrayReportsTab />
+        <TabsContent value="vaccinations" className="space-y-4">
+          <VaccinationsTab />
         </TabsContent>
 
         <TabsContent value="adoption" className="space-y-4">

@@ -567,3 +567,97 @@ export function useUpdateUsername() {
   });
 }
 
+// ------------- Vaccinations -------------
+
+export interface ScheduledVaccination {
+  id: number;
+  petId: number;
+  vaccineName: string;
+  scheduledDate: string;
+  status: 'PENDING' | 'COMPLETED' | 'SKIPPED';
+  reminderSent: boolean;
+  notes?: string;
+  createdAt: string;
+}
+
+export function useGetPetVaccinations(petId: number) {
+  return useQuery<ScheduledVaccination[]>({
+    queryKey: ['petVaccinations', petId],
+    queryFn: async () => {
+      return apiFetch(`/api/vaccinations/pet/${petId}`);
+    },
+  });
+}
+
+export function useGetUpcomingVaccinations() {
+  return useQuery<(ScheduledVaccination & { pet?: { id: number; name: string; breed: string } })[]>({
+    queryKey: ['upcomingVaccinations'],
+    queryFn: async () => {
+      return apiFetch('/api/vaccinations/upcoming');
+    },
+    refetchInterval: 60000, // Refresh every minute
+  });
+}
+
+export function useScheduleVaccination() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { petId: number; vaccineName: string; scheduledDate: string; notes?: string }) => {
+      return apiFetch<ScheduledVaccination>('/api/vaccinations/schedule', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['petVaccinations', variables.petId] });
+      queryClient.invalidateQueries({ queryKey: ['upcomingVaccinations'] });
+      toast.success('Vaccination scheduled successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to schedule vaccination');
+    },
+  });
+}
+
+export function useUpdateVaccinationStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { vaccinationId: number; status: 'PENDING' | 'COMPLETED' | 'SKIPPED' }) => {
+      return apiFetch<ScheduledVaccination>(`/api/vaccinations/${data.vaccinationId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: data.status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['upcomingVaccinations'] });
+      queryClient.invalidateQueries({ queryKey: ['petVaccinations'] });
+      toast.success('Vaccination status updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update vaccination');
+    },
+  });
+}
+
+export function useDeleteVaccination() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (vaccinationId: number) => {
+      return apiFetch(`/api/vaccinations/${vaccinationId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['upcomingVaccinations'] });
+      queryClient.invalidateQueries({ queryKey: ['petVaccinations'] });
+      toast.success('Vaccination removed');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete vaccination');
+    },
+  });
+}
+

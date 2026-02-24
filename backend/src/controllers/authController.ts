@@ -153,6 +153,8 @@ export const getProfile = async (
         email: true,
         name: true,
         role: true,
+        username: true,
+        lastUsernameChange: true,
         // Exclude password!
       },
     });
