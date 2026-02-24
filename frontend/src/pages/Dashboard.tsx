@@ -6,7 +6,10 @@ import StrayReportsTab from '../components/tabs/StrayReportsTab';
 import AdoptionTab from '../components/tabs/AdoptionTab';
 import ShopTab from '../components/tabs/ShopTab';
 import AdminTab from '../components/tabs/AdminTab';
-import { PawPrint, AlertCircle, Heart, ShoppingBag, Shield } from 'lucide-react';
+import BlogTab from '../components/tabs/BlogTab';
+import SettingsTab from '../components/tabs/SettingsTab';
+import VaccinationsTab from '../components/tabs/VaccinationsTab';
+import { PawPrint, AlertCircle, Heart, ShoppingBag, Shield, MessageSquare, Settings, Syringe } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -25,14 +28,18 @@ export default function Dashboard() {
       </div>
 
       <Tabs defaultValue="pets" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7 lg:grid-cols-8">
           <TabsTrigger value="pets" className="gap-2">
             <PawPrint className="h-4 w-4" />
             <span className="hidden sm:inline">My Pets</span>
           </TabsTrigger>
+          <TabsTrigger value="vaccinations" className="gap-2">
+            <Syringe className="h-4 w-4" />
+            <span className="hidden sm:inline">Vaccines</span>
+          </TabsTrigger>
           <TabsTrigger value="strays" className="gap-2">
             <AlertCircle className="h-4 w-4" />
-            <span className="hidden sm:inline">Stray Reports</span>
+            <span className="hidden sm:inline">Strays</span>
           </TabsTrigger>
           <TabsTrigger value="adoption" className="gap-2">
             <Heart className="h-4 w-4" />
@@ -41,6 +48,14 @@ export default function Dashboard() {
           <TabsTrigger value="shop" className="gap-2">
             <ShoppingBag className="h-4 w-4" />
             <span className="hidden sm:inline">Shop</span>
+          </TabsTrigger>
+          <TabsTrigger value="blog" className="gap-2">
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Blog</span>
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Settings</span>
           </TabsTrigger>
           {isAdmin && (
             <TabsTrigger value="admin" className="gap-2">
@@ -54,8 +69,8 @@ export default function Dashboard() {
           <PetsTab />
         </TabsContent>
 
-        <TabsContent value="strays" className="space-y-4">
-          <StrayReportsTab />
+        <TabsContent value="vaccinations" className="space-y-4">
+          <VaccinationsTab />
         </TabsContent>
 
         <TabsContent value="adoption" className="space-y-4">
@@ -64,6 +79,14 @@ export default function Dashboard() {
 
         <TabsContent value="shop" className="space-y-4">
           <ShopTab />
+        </TabsContent>
+
+        <TabsContent value="blog" className="space-y-4">
+          <BlogTab />
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4">
+          <SettingsTab />
         </TabsContent>
 
         {isAdmin && (

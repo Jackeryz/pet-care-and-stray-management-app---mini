@@ -120,6 +120,41 @@ export function useDeletePet() {
   });
 }
 
+export function useUpdatePetPhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ petId, photo }: { petId: number; photo: File }) => {
+      const formData = new FormData();
+      formData.append('photo', photo);
+
+      const baseUrl = getApiBaseUrl();
+      const token = getAuthToken();
+      const res = await fetch(`${baseUrl}/api/pets/${petId}/photo`, {
+        method: 'PATCH',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to update pet photo');
+      }
+
+      return (await res.json()) as Pet;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      toast.success('Pet photo updated successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update pet photo');
+    },
+  });
+}
+
 export function useAddMedicalRecord() {
   const queryClient = useQueryClient();
 
@@ -337,6 +372,22 @@ export function useUpdateAdoptionStatus() {
   });
 }
 
+// ------------- Chat Messages (Adoption) - Using WebSocket now via useSocket hook -----------
+
+// The chat now uses WebSocket (Socket.io) for real-time messaging.
+// See useSocket hook for Socket.io implementation.
+// REST endpoints are kept as fallback for initial message loading and unread counts.
+
+export function useGetUnreadChatCount() {
+  return useQuery<{ totalUnread: number; adoptionUnreadCounts: Record<string, number> }>({
+    queryKey: ['unreadChatCount'],
+    queryFn: async () => {
+      return apiFetch('/api/chat/count/unread');
+    },
+    refetchInterval: 1000, // Poll every 1 second for unread counts
+  });
+}
+
 // ------------- Products & Orders -------------
 
 export function useListProducts() {
@@ -471,6 +522,176 @@ export function useUpdateOrderStatus() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update order status');
+    },
+  });
+}
+
+// ------------- Blog Posts -------------
+
+export interface BlogPost {
+  id: number;
+  userId: string;
+  username: string;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+export function useGetBlogPosts(page: number = 1) {
+  return useQuery<{ posts: BlogPost[]; hasMore: boolean; page: number; limit: number }>({
+    queryKey: ['blogPosts', page],
+    queryFn: async () => {
+      return apiFetch(`/api/blog?page=${page}`);
+    },
+  });
+}
+
+export function useGetMyBlogPosts() {
+  const { user } = useAuth();
+
+  return useQuery<BlogPost[]>({
+    queryKey: ['myBlogPosts'],
+    queryFn: async () => {
+      return apiFetch('/api/blog/my-posts');
+    },
+    enabled: !!user,
+  });
+}
+
+export function useCreateBlogPost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (content: string) => {
+      return apiFetch<BlogPost>('/api/blog', {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blogPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['myBlogPosts'] });
+      toast.success('Post created successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create post');
+    },
+  });
+}
+
+// ------------- Username Management -------------
+
+export function useUpdateUsername() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (username: string) => {
+      return apiFetch<any>('/api/auth/username', {
+        method: 'PATCH',
+        body: JSON.stringify({ username }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['callerUserProfile'] });
+      toast.success('Username updated successfully');
+    },
+    onError: (error: Error) => {
+      const message = error.message || 'Failed to update username';
+      toast.error(message);
+    },
+  });
+}
+
+// ------------- Vaccinations -------------
+
+export interface ScheduledVaccination {
+  id: number;
+  petId: number;
+  vaccineName: string;
+  scheduledDate: string;
+  status: 'PENDING' | 'COMPLETED' | 'SKIPPED';
+  reminderSent: boolean;
+  notes?: string;
+  createdAt: string;
+}
+
+export function useGetPetVaccinations(petId: number) {
+  return useQuery<ScheduledVaccination[]>({
+    queryKey: ['petVaccinations', petId],
+    queryFn: async () => {
+      return apiFetch(`/api/vaccinations/pet/${petId}`);
+    },
+  });
+}
+
+export function useGetUpcomingVaccinations() {
+  return useQuery<(ScheduledVaccination & { pet?: { id: number; name: string; breed: string } })[]>({
+    queryKey: ['upcomingVaccinations'],
+    queryFn: async () => {
+      return apiFetch('/api/vaccinations/upcoming');
+    },
+    refetchInterval: 60000, // Refresh every minute
+  });
+}
+
+export function useScheduleVaccination() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { petId: number; vaccineName: string; scheduledDate: string; notes?: string }) => {
+      return apiFetch<ScheduledVaccination>('/api/vaccinations/schedule', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['petVaccinations', variables.petId] });
+      queryClient.invalidateQueries({ queryKey: ['upcomingVaccinations'] });
+      toast.success('Vaccination scheduled successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to schedule vaccination');
+    },
+  });
+}
+
+export function useUpdateVaccinationStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { vaccinationId: number; status: 'PENDING' | 'COMPLETED' | 'SKIPPED' }) => {
+      return apiFetch<ScheduledVaccination>(`/api/vaccinations/${data.vaccinationId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: data.status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['upcomingVaccinations'] });
+      queryClient.invalidateQueries({ queryKey: ['petVaccinations'] });
+      toast.success('Vaccination status updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update vaccination');
+    },
+  });
+}
+
+export function useDeleteVaccination() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (vaccinationId: number) => {
+      return apiFetch(`/api/vaccinations/${vaccinationId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['upcomingVaccinations'] });
+      queryClient.invalidateQueries({ queryKey: ['petVaccinations'] });
+      toast.success('Vaccination removed');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete vaccination');
     },
   });
 }

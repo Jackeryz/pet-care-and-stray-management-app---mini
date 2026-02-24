@@ -16,6 +16,8 @@ model User {
   password String // Hashed password
   name     String
   role     String // "ADMIN", "PET_OWNER", "VET", "NGO", "PUBLIC"
+  username String? @unique
+  lastUsernameChange DateTime?
 
   pets         Pet[]            @relation("OwnerPets")
   assignedPets Pet[]            @relation("VetPets")
@@ -35,8 +37,9 @@ model Pet {
   assignedVetId String?
   assignedVet   User?   @relation("VetPets", fields: [assignedVetId], references: [id])
 
-  medicalRecord  MedicalRecord?
-  adoptionRecord AdoptionRecord?
+  medicalRecord         MedicalRecord?
+  adoptionRecord        AdoptionRecord?
+  scheduledVaccinations ScheduledVaccination[]
 }
 
 model MedicalRecord {
@@ -47,6 +50,18 @@ model MedicalRecord {
   vaccinations String // JSON string: "['Rabies', 'Parvo']"
   treatments   String // JSON string
   healthLogs   String // JSON string
+}
+
+model ScheduledVaccination {
+  id            Int      @id @default(autoincrement())
+  petId         Int
+  pet           Pet      @relation(fields: [petId], references: [id])
+  vaccineName   String
+  scheduledDate DateTime
+  status        String   @default("PENDING") // "PENDING", "COMPLETED", "SKIPPED"
+  reminderSent  Boolean  @default(false)
+  notes         String?
+  createdAt     DateTime @default(now())
 }
 
 model StrayReport {

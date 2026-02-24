@@ -1,15 +1,22 @@
-import { useListAdoptionRecords, useCreateAdoptionRequest, useListPets } from '../../hooks/useQueries';
+import { useState } from 'react';
+import { useListAdoptionRecords, useCreateAdoptionRequest, useListPets, useGetUnreadChatCount, useGetCallerUserProfile } from '../../hooks/useQueries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Heart } from 'lucide-react';
+import { Loader2, Heart, MessageCircle } from 'lucide-react';
 import type { AdoptionRecord, Pet } from '../../types';
 import { getApiBaseUrl } from '../../hooks/useAuth';
+import { AdoptionChatModal } from '../AdoptionChatModal';
 
 export default function AdoptionTab() {
   const { data: adoptionRecords, isLoading: recordsLoading } = useListAdoptionRecords();
   const { data: pets, isLoading: petsLoading } = useListPets();
+  const { data: currentUser } = useGetCallerUserProfile();
+  const { data: unreadData } = useGetUnreadChatCount();
   const createRequest = useCreateAdoptionRequest();
+  
+  const [selectedAdoption, setSelectedAdoption] = useState<any | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const isLoading = recordsLoading || petsLoading;
 
@@ -27,6 +34,16 @@ export default function AdoptionTab() {
   // Available pets for adoption (pets without adoption requests)
   const availablePets = pets?.filter(pet => !adoptedPetIds.has(pet.id)) || [];
 
+  const handleOpenChat = (adoption: any) => {
+    setSelectedAdoption(adoption);
+    setIsChatOpen(true);
+  };
+
+  const handleCloseChat = () => {
+    setIsChatOpen(false);
+    setSelectedAdoption(null);
+  };
+
   return (
     <div className="space-y-8">
       {/* My Adoption Requests */}
@@ -40,8 +57,16 @@ export default function AdoptionTab() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {adoptionRecords.map((record) => {
               const pet = pets?.find(p => p.id === record.petId);
+              const unreadCount = unreadData?.adoptionUnreadCounts?.[record.id] || 0;
               return (
-                <AdoptionRequestCard key={record.id} record={record} pet={pet} />
+                <AdoptionRequestCard 
+                  key={record.id} 
+                  record={record} 
+                  pet={pet} 
+                  currentUser={currentUser}
+                  unreadCount={unreadCount}
+                  onChatClick={() => handleOpenChat(record)}
+                />
               );
             })}
           </div>
@@ -115,11 +140,43 @@ export default function AdoptionTab() {
           </Card>
         )}
       </div>
+
+      {/* Chat Modal */}
+      {selectedAdoption && (
+        <AdoptionChatModal
+          adoptionRecordId={selectedAdoption.id}
+          petName={pets?.find(p => p.id === selectedAdoption.petId)?.name || 'Pet'}
+          otherUserName={
+            currentUser?.id === selectedAdoption.applicantId
+              ? selectedAdoption.pet?.owner?.name || 'Pet Owner'
+              : selectedAdoption.applicant?.name || 'Applicant'
+          }
+          otherUserEmail={
+            currentUser?.id === selectedAdoption.applicantId
+              ? selectedAdoption.pet?.owner?.email || ''
+              : selectedAdoption.applicant?.email || ''
+          }
+          isOpen={isChatOpen}
+          onClose={handleCloseChat}
+        />
+      )}
     </div>
   );
 }
 
-function AdoptionRequestCard({ record, pet }: { record: AdoptionRecord; pet?: Pet }) {
+function AdoptionRequestCard({ 
+  record, 
+  pet, 
+  currentUser,
+  unreadCount,
+  onChatClick,
+}: { 
+  record: AdoptionRecord & { pet?: any; applicant?: any }; 
+  pet?: Pet;
+  currentUser?: any;
+  unreadCount?: number;
+  onChatClick?: () => void;
+}) {
   const getStatusBadge = (status: AdoptionRecord['status']) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
       PENDING: 'secondary',
@@ -131,12 +188,15 @@ function AdoptionRequestCard({ record, pet }: { record: AdoptionRecord; pet?: Pe
     return <Badge variant={variant}>{label}</Badge>;
   };
 
+  const isApplicant = currentUser?.id === record.applicantId;
+  const otherUser = isApplicant ? record.pet?.owner : record.applicant;
+
   return (
     <Card>
       {pet && (
         <div className="aspect-video w-full overflow-hidden bg-muted">
           <img
-            src={URL.createObjectURL(new Blob([new Uint8Array(pet.photo)], { type: 'image/jpeg' }))}
+            src={`${getApiBaseUrl()}${pet.photoUrl}`}
             alt={pet.name}
             className="h-full w-full object-cover"
           />
@@ -151,13 +211,38 @@ function AdoptionRequestCard({ record, pet }: { record: AdoptionRecord; pet?: Pe
           {getStatusBadge(record.status)}
         </div>
       </CardHeader>
-      {pet && (
-        <CardContent>
+      <CardContent className="space-y-4">
+        {pet && (
           <p className="text-sm text-muted-foreground">
             {pet.breed} • {pet.age} years old
           </p>
-        </CardContent>
-      )}
+        )}
+        
+        {otherUser && (
+          <div className="text-sm border-t pt-3">
+            <p className="font-semibold">{isApplicant ? 'Pet Owner' : 'Applicant'}</p>
+            <p className="text-muted-foreground">{otherUser.name}</p>
+            <p className="text-muted-foreground text-xs">{otherUser.email}</p>
+          </div>
+        )}
+
+        {/* Chat Button - Only show for approved adoptions */}
+        {record.status === 'APPROVED' && (
+          <Button
+            variant="outline"
+            className="w-full mt-2"
+            onClick={onChatClick}
+          >
+            <MessageCircle className="mr-2 h-4 w-4" />
+            Chat
+            {unreadCount > 0 && (
+              <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                {unreadCount}
+              </span>
+            )}
+          </Button>
+        )}
+      </CardContent>
     </Card>
   );
 }

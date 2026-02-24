@@ -1,9 +1,9 @@
-// src/controllers/authController.ts
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { AuthRequest } from "../middlewares/auth";
 import { prisma } from "../database/db";
+import { generateUniqueUsername } from "../database/sqliteSetup";
 
 function getSecretKey(): string {
   const key = process.env.JWT_SECRET;
@@ -16,7 +16,7 @@ function getSecretKey(): string {
 // Register User
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, name, role, latitude, longitude } = req.body;
+    const { email, password, name, role, latitude, longitude, username: requestedUsername } = req.body;
 
     // Validate input
     if (!email || !password || !name) {
@@ -31,6 +31,25 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Validate and use provided username, or generate one
+    let username = requestedUsername;
+    if (username) {
+      // Validate username format (alphanumeric, underscore, dash, 3-20 chars)
+      if (!/^[a-zA-Z0-9_-]{3,20}$/.test(username)) {
+        res.status(400).json({ error: "Username must be 3-20 characters (alphanumeric, dash, underscore only)" });
+        return;
+      }
+      // Check if username is already taken
+      const existingUsername = await prisma.user.findUnique({ where: { username } });
+      if (existingUsername) {
+        res.status(400).json({ error: "Username is already taken" });
+        return;
+      }
+    } else {
+      // Generate unique username if not provided
+      username = generateUniqueUsername();
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -41,6 +60,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         password: hashedPassword,
         name,
         role: role || "PUBLIC_USER", // Default role if none provided
+        username,
+        lastUsernameChange: new Date(),
       },
     });
 
@@ -132,6 +153,8 @@ export const getProfile = async (
         email: true,
         name: true,
         role: true,
+        username: true,
+        lastUsernameChange: true,
         // Exclude password!
       },
     });
@@ -144,5 +167,100 @@ export const getProfile = async (
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch profile" });
+  }
+};
+
+// Update username with 7-day cooldown
+export const updateUsername = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const { username: newUsername } = req.body;
+
+    if (!userId) {
+      res.status(401).json({ error: "User not authenticated" });
+      return;
+    }
+
+    if (!newUsername || typeof newUsername !== 'string') {
+      res.status(400).json({ error: "Username is required" });
+      return;
+    }
+
+    // Validate username format (alphanumeric, underscore, dash, 3-20 chars)
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(newUsername)) {
+      res.status(400).json({ error: "Username must be 3-20 characters (alphanumeric, dash, underscore only)" });
+      return;
+    }
+
+    // Get current user with lastUsernameChange
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        username: true,
+        lastUsernameChange: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    // Check if username is the same as current
+    if (user.username === newUsername) {
+      res.status(400).json({ error: "New username must be different from current username" });
+      return;
+    }
+
+    // Check cooldown (7 days = 604800000 milliseconds)
+    const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+    if (user.lastUsernameChange) {
+      const timeSinceChange = Date.now() - new Date(user.lastUsernameChange).getTime();
+      if (timeSinceChange < COOLDOWN_MS) {
+        const daysRemaining = Math.ceil((COOLDOWN_MS - timeSinceChange) / (24 * 60 * 60 * 1000));
+        res.status(429).json({ 
+          error: `Username can only be changed once every 7 days. You can change it again in ${daysRemaining} days.`,
+          daysRemaining
+        });
+        return;
+      }
+    }
+
+    // Check if new username is already taken
+    const existingUsername = await prisma.user.findUnique({
+      where: { username: newUsername },
+    });
+
+    if (existingUsername) {
+      res.status(400).json({ error: "Username is already taken" });
+      return;
+    }
+
+    // Update username
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        username: newUsername,
+        lastUsernameChange: new Date(),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        username: true,
+      },
+    });
+
+    res.json({
+      message: "Username updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error updating username:", error);
+    res.status(500).json({ error: "Failed to update username" });
   }
 };

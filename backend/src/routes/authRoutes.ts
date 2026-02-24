@@ -1,6 +1,6 @@
 // src/routes/authRoutes.ts
 import express from "express";
-import { register, login, getProfile } from "../controllers/authController";
+import { register, login, getProfile, updateUsername } from "../controllers/authController";
 import { authenticate } from "../middlewares/auth";
 
 const router = express.Router();
@@ -14,5 +14,8 @@ router.post("/login", login);
 //[PROTECTED ROUTE]
 // GET /api/auth/me
 router.get("/me", authenticate, getProfile);
+
+// PATCH /api/auth/username
+router.patch("/username", authenticate, updateUsername);
 
 export default router;

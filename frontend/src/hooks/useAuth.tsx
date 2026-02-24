@@ -147,6 +147,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
       role: Role | null,
       latitude?: number | null,
       longitude?: number | null,
+      username?: string,
     ) => {
       setStatus('authenticating');
       try {
@@ -162,6 +163,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
             password,
             role: role ?? 'PUBLIC_USER',
             ...(latitude && longitude && { latitude, longitude }),
+            ...(username && { username }),
           }),
         });
 
