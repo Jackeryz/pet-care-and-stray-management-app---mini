@@ -176,3 +176,43 @@ export const deletePet = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: "Failed to delete pet" });
   }
 };
+
+// Update Pet Photo
+export const updatePetPhoto = async (req: AuthRequest, res: Response) => {
+  try {
+    const { petId } = req.params;
+    const userId = req.user!.id;
+
+    if (!req.file) {
+      res.status(400).json({ error: "No photo provided" });
+      return;
+    }
+
+    // Verify ownership
+    const pet = await prisma.pet.findUnique({
+      where: { id: Number(petId) },
+    });
+
+    if (!pet) {
+      res.status(404).json({ error: "Pet not found" });
+      return;
+    }
+
+    if (pet.ownerId !== userId) {
+      res.status(403).json({ error: "Unauthorized" });
+      return;
+    }
+
+    // Update pet with new photo URL
+    const photoUrl = `/uploads/${req.file.filename}`;
+    const updatedPet = await prisma.pet.update({
+      where: { id: Number(petId) },
+      data: { photoUrl },
+    });
+
+    res.json(updatedPet);
+  } catch (error) {
+    console.error("Update Pet Photo Error:", error);
+    res.status(500).json({ error: "Failed to update pet photo" });
+  }
+};

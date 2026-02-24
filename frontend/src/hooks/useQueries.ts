@@ -120,6 +120,41 @@ export function useDeletePet() {
   });
 }
 
+export function useUpdatePetPhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ petId, photo }: { petId: number; photo: File }) => {
+      const formData = new FormData();
+      formData.append('photo', photo);
+
+      const baseUrl = getApiBaseUrl();
+      const token = getAuthToken();
+      const res = await fetch(`${baseUrl}/api/pets/${petId}/photo`, {
+        method: 'PATCH',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to update pet photo');
+      }
+
+      return (await res.json()) as Pet;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      toast.success('Pet photo updated successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update pet photo');
+    },
+  });
+}
+
 export function useAddMedicalRecord() {
   const queryClient = useQueryClient();
 

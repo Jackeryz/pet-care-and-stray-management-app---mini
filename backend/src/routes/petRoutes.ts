@@ -7,6 +7,7 @@ import {
   getMedicalRecord,
   addMedicalRecord,
   deletePet,
+  updatePetPhoto,
 } from "../controllers/petController";
 import { authenticate } from "../middlewares/auth";
 import { upload } from "../middlewares/upload";
@@ -16,6 +17,7 @@ const router = express.Router();
 // Pet CRUD
 router.get("/", authenticate, listPets);
 router.post("/", authenticate, upload.single("photo"), createPet);
+router.patch("/:petId/photo", authenticate, upload.single("photo"), updatePetPhoto);
 router.delete("/:petId", authenticate, deletePet);
 router.post("/assign-vet", authenticate, assignVet);
 

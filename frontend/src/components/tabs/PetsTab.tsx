@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useListPets, useCreatePet, useDeletePet, useGetMedicalRecord, useAddMedicalRecord } from '../../hooks/useQueries';
+import { useListPets, useCreatePet, useDeletePet, useGetMedicalRecord, useAddMedicalRecord, useUpdatePetPhoto } from '../../hooks/useQueries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Plus, Syringe, FileText, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Syringe, FileText, Trash2, Camera } from 'lucide-react';
 import type { Pet } from '../../types';
 import { getApiBaseUrl } from '../../hooks/useAuth';
 import VaccinationScheduler from '../VaccinationScheduler';
@@ -60,13 +60,18 @@ export default function PetsTab() {
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {pets?.map((pet) => (
             <Card key={pet.id} className="overflow-hidden relative">
-              {pet.photoUrl && (
-                <div className="aspect-video w-full overflow-hidden bg-muted">
+              {pet.photoUrl ? (
+                <div className="aspect-video w-full overflow-hidden bg-muted relative group">
                   <img
                     src={`${getApiBaseUrl()}${pet.photoUrl}`}
                     alt={pet.name}
                     className="h-full w-full object-cover"
                   />
+                  <UpdatePetPhotoButton petId={pet.id} petName={pet.name} />
+                </div>
+              ) : (
+                <div className="aspect-video w-full bg-muted flex items-center justify-center">
+                  <UpdatePetPhotoButton petId={pet.id} petName={pet.name} />
                 </div>
               )}
               <CardHeader className="flex flex-row items-start justify-between gap-2">
@@ -418,6 +423,77 @@ function DeletePetButton({ petId, petName, compact = false }: { petId: number; p
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+function UpdatePetPhotoButton({ petId, petName }: { petId: number; petName: string }) {
+  const [showDialog, setShowDialog] = useState(false);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const updatePetPhoto = useUpdatePetPhoto();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!photo) return;
+
+    updatePetPhoto.mutate(
+      { petId, photo },
+      {
+        onSuccess: () => {
+          setPhoto(null);
+          setShowDialog(false);
+        },
+      }
+    );
+  };
+
+  return (
+    <>
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogTrigger asChild>
+          <button className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Camera className="h-8 w-8 text-white" />
+          </button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Photo - {petName}</DialogTitle>
+            <DialogDescription>Choose a new photo for your pet</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="photo">Photo</Label>
+              <Input
+                id="photo"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setPhoto(e.target.files?.[0] || null)}
+                required
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" className="flex-1" disabled={!photo || updatePetPhoto.isPending}>
+                {updatePetPhoto.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  'Update Photo'
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowDialog(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
