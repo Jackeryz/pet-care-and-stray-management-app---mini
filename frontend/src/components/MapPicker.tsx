@@ -3,13 +3,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // Fix marker icon paths for Leaflet in many bundlers
 delete (L.Icon.Default as any).prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
 });
 
 export default function MapPicker({
@@ -34,18 +37,33 @@ export default function MapPicker({
   }, [initialLat, initialLng]);
 
   function LocationSelector() {
-    useMapEvents({
+    const map = useMapEvents({
       click(e) {
         setPos([e.latlng.lat, e.latlng.lng]);
       },
     });
-    return pos ? <Marker position={pos as any} /> : null;
+
+    useEffect(() => {
+      if (pos) {
+        map.setView(pos, 13);
+      }
+    }, [map, pos]);
+
+    return pos ? <Marker position={pos} /> : null;
   }
 
   const handleConfirm = () => {
     if (pos) onPick(pos[0], pos[1]);
     onClose();
   };
+
+  const mapProps = {
+    bounds: [
+      [-90, -180],
+      [90, 180],
+    ],
+    zoom: pos ? 13 : 2,
+  } as any;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -55,8 +73,7 @@ export default function MapPicker({
         </DialogHeader>
         <div style={{ height: 400 }} className="w-full">
           <MapContainer
-            center={pos || [0, 0]}
-            zoom={pos ? 13 : 2}
+            {...mapProps}
             style={{ height: '100%', width: '100%' }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
