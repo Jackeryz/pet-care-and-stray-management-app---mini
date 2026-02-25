@@ -30,6 +30,18 @@ export function getApiBaseUrl() {
   return (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3000';
 }
 
+// Build a safe URL for API-hosted assets. Trims input and encodes spaces
+// ensuring images with spaces in their stored paths still load.
+export function buildApiUrl(path: string | null | undefined) {
+  const base = getApiBaseUrl().replace(/\/$/, '');
+  if (!path) return base;
+  const trimmed = path.trim();
+  // encodeURI preserves existing slashes but encodes spaces as %20
+  const encoded = encodeURI(trimmed);
+  if (encoded.startsWith('/')) return base + encoded;
+  return base + '/' + encoded;
+}
+
 async function fetchWithAuth<T>(
   path: string,
   options: RequestInit = {},

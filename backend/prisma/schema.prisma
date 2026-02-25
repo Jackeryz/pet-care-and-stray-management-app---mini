@@ -18,6 +18,8 @@ model User {
   role     String // "ADMIN", "PET_OWNER", "VET", "NGO", "PUBLIC"
   username String? @unique
   lastUsernameChange DateTime?
+  latitude Float?
+  longitude Float?
 
   pets         Pet[]            @relation("OwnerPets")
   assignedPets Pet[]            @relation("VetPets")

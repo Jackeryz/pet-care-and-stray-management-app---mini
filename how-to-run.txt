@@ -24,4 +24,8 @@ Access on Mobile Device
 3. The frontend will connect to the backend at the IP specified in .env file
 
 if you're trying to restart backend but the port is already being used from before
-$pid = (netstat -ano | findstr :3000)[0] -split '\s+' | Select-Object -Last 1; Stop-Process -Id $pid -Force
+# find out what's using port 3000
+netstat -ano | findstr :3000
+
+# Kill it (replace XXXX with the PID from above)
+Stop-Process -Id XXXX -Force

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Plus, Syringe, FileText, Trash2, Camera, Heart } from 'lucide-react';
 import type { Pet } from '../../types';
-import { getApiBaseUrl } from '../../hooks/useAuth';
+import { getApiBaseUrl, buildApiUrl } from '../../hooks/useAuth';
 import VaccinationScheduler from '../VaccinationScheduler';
 
 export default function PetsTab() {
@@ -63,7 +63,7 @@ export default function PetsTab() {
               {pet.photoUrl ? (
                 <div className="aspect-video w-full overflow-hidden bg-muted relative group">
                   <img
-                    src={`${getApiBaseUrl()}${pet.photoUrl}`}
+                    src={buildApiUrl(pet.photoUrl)}
                     alt={pet.name}
                     className="h-full w-full object-cover"
                   />

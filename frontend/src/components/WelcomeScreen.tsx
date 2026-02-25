@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Heart, PawPrint, ShoppingBag, Users, MapPin, Loader2 } from 'lucide-react';
+import MapPicker from '@/components/MapPicker';
 import type { Role } from '../types';
 
 export default function WelcomeScreen() {
@@ -21,6 +22,7 @@ export default function WelcomeScreen() {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   const handleGetLocation = async () => {
     setGeoLoading(true);
@@ -132,6 +134,15 @@ export default function WelcomeScreen() {
                           </>
                         )}
                       </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowMapPicker(true)}
+                        className="w-full mt-2"
+                      >
+                        <MapPin className="mr-2 h-4 w-4" />
+                        Pick Location on Map
+                      </Button>
                       {latitude && longitude && (
                         <p className="text-xs text-muted-foreground">
                           Location set: {latitude.toFixed(4)}°, {longitude.toFixed(4)}°
@@ -195,6 +206,15 @@ export default function WelcomeScreen() {
           </CardContent>
         </Card>
 
+        <MapPicker
+          open={showMapPicker}
+          onClose={() => setShowMapPicker(false)}
+          onPick={(lat, lng) => {
+            setLatitude(lat);
+            setLongitude(lng);
+          }}
+        />
+
         {/* Features Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -246,24 +266,7 @@ export default function WelcomeScreen() {
           </Card>
         </div>
 
-        {/* Image Gallery */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <img
-            src="/assets/generated/vet-examination.dim_800x600.jpg"
-            alt="Veterinary examination"
-            className="rounded-lg object-cover w-full h-48"
-          />
-          <img
-            src="/assets/generated/pet-adoption-family.dim_800x600.jpg"
-            alt="Pet adoption"
-            className="rounded-lg object-cover w-full h-48"
-          />
-          <img
-            src="/assets/generated/pet-supplies-shelf.dim_800x600.jpg"
-            alt="Pet supplies"
-            className="rounded-lg object-cover w-full h-48"
-          />
-        </div>
+        {/* Image Gallery removed per request */}
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Heart, MessageCircle, Check, X, MapPin } from 'lucide-react';
 import type { Pet } from '../../types';
-import { getApiBaseUrl } from '../../hooks/useAuth';
+import { getApiBaseUrl, buildApiUrl } from '../../hooks/useAuth';
 import { AdoptionChatModal } from '../AdoptionChatModal';
 
 export default function AdoptionTab() {
@@ -142,7 +142,7 @@ export default function AdoptionTab() {
                 {pet.photoUrl && (
                   <div className="aspect-video w-full overflow-hidden bg-muted">
                     <img
-                      src={`${getApiBaseUrl()}${pet.photoUrl}`}
+                      src={buildApiUrl(pet.photoUrl)}
                       alt={pet.name}
                       className="h-full w-full object-cover"
                     />
@@ -236,7 +236,7 @@ function InboundRequestCard({
       {pet && pet.photoUrl && (
         <div className="aspect-video w-full overflow-hidden bg-muted">
           <img
-            src={`${getApiBaseUrl()}${pet.photoUrl}`}
+            src={buildApiUrl(pet.photoUrl)}
             alt={pet.name}
             className="h-full w-full object-cover"
           />
@@ -338,7 +338,7 @@ function MyRequestCard({
       {pet && pet.photoUrl && (
         <div className="aspect-video w-full overflow-hidden bg-muted">
           <img
-            src={`${getApiBaseUrl()}${pet.photoUrl}`}
+            src={buildApiUrl(pet.photoUrl)}
             alt={pet.name}
             className="h-full w-full object-cover"
           />

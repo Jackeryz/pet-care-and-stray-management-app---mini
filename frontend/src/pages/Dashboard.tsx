@@ -73,6 +73,10 @@ export default function Dashboard() {
           <VaccinationsTab />
         </TabsContent>
 
+        <TabsContent value="strays" className="space-y-4">
+          <StrayReportsTab />
+        </TabsContent>
+
         <TabsContent value="adoption" className="space-y-4">
           <AdoptionTab />
         </TabsContent>
