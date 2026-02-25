@@ -36,9 +36,10 @@ model Pet {
   owner         User    @relation("OwnerPets", fields: [ownerId], references: [id])
   assignedVetId String?
   assignedVet   User?   @relation("VetPets", fields: [assignedVetId], references: [id])
+  isListed      Boolean @default(false) // Listed for adoption
 
   medicalRecord         MedicalRecord?
-  adoptionRecord        AdoptionRecord?
+  adoptionRecords       AdoptionRecord[]
   scheduledVaccinations ScheduledVaccination[]
 }
 
@@ -76,12 +77,14 @@ model StrayReport {
 }
 
 model AdoptionRecord {
-  id          Int    @id @default(autoincrement())
-  petId       Int    @unique
-  pet         Pet    @relation(fields: [petId], references: [id])
+  id          Int      @id @default(autoincrement())
+  petId       Int
+  pet         Pet      @relation(fields: [petId], references: [id])
   applicantId String
-  applicant   User   @relation(fields: [applicantId], references: [id])
-  status      String // "PENDING", "APPROVED", "REJECTED"
+  applicant   User     @relation(fields: [applicantId], references: [id])
+  status      String   @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  chatCreated Boolean  @default(false) // Whether chat has been created for this adoption
+  createdAt   DateTime @default(now())
 }
 
 model Product {

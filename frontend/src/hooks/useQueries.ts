@@ -337,17 +337,113 @@ export function useCreateAdoptionRequest() {
 
   return useMutation({
     mutationFn: async (petId: number) => {
-      return apiFetch<AdoptionRecord>('/api/adoptions', {
+      return apiFetch<AdoptionRecord>(`/api/adoptions/${petId}/request`, {
         method: 'POST',
-        body: JSON.stringify({ petId }),
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['availablePets'] });
       toast.success('Adoption request submitted');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to submit adoption request');
+    },
+  });
+}
+
+export function useListPetForAdoption() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (petId: number) => {
+      return apiFetch<{ success: boolean; pet: any }>(`/api/adoptions/${petId}/list`, {
+        method: 'POST',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
+      toast.success('Pet listed for adoption');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to list pet for adoption');
+    },
+  });
+}
+
+export function useDelistPetFromAdoption() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (petId: number) => {
+      return apiFetch<{ success: boolean; pet: any }>(`/api/adoptions/${petId}/list`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
+      toast.success('Pet removed from adoption listing');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delist pet');
+    },
+  });
+}
+
+export function useGetAvailablePetsForAdoption() {
+  const { user } = useAuth();
+
+  return useQuery<any[]>({
+    queryKey: ['availablePets'],
+    queryFn: async () => {
+      return apiFetch<any[]>('/api/adoptions/available');
+    },
+    enabled: !!user,
+  });
+}
+
+export function useAcceptAdoptionRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (requestId: number) => {
+      return apiFetch<{ success: boolean; adoptionRecord: AdoptionRecord }>(
+        `/api/adoptions/${requestId}/accept`,
+        {
+          method: 'PATCH',
+        },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
+      toast.success('Adoption request accepted - chat created');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to accept adoption request');
+    },
+  });
+}
+
+export function useRejectAdoptionRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (requestId: number) => {
+      return apiFetch<{ success: boolean; adoptionRecord: AdoptionRecord }>(
+        `/api/adoptions/${requestId}/reject`,
+        {
+          method: 'PATCH',
+        },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
+      toast.success('Adoption request rejected');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to reject adoption request');
     },
   });
 }

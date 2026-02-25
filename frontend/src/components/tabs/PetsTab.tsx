@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useListPets, useCreatePet, useDeletePet, useGetMedicalRecord, useAddMedicalRecord, useUpdatePetPhoto } from '../../hooks/useQueries';
+import { useListPets, useCreatePet, useDeletePet, useGetMedicalRecord, useAddMedicalRecord, useUpdatePetPhoto, useListPetForAdoption, useDelistPetFromAdoption } from '../../hooks/useQueries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Plus, Syringe, FileText, Trash2, Camera } from 'lucide-react';
+import { Loader2, Plus, Syringe, FileText, Trash2, Camera, Heart } from 'lucide-react';
 import type { Pet } from '../../types';
 import { getApiBaseUrl } from '../../hooks/useAuth';
 import VaccinationScheduler from '../VaccinationScheduler';
@@ -95,6 +95,7 @@ export default function PetsTab() {
                   <FileText className="mr-2 h-4 w-4" />
                   Medical Records
                 </Button>
+                <AdoptionListingButton petId={pet.id} petName={pet.name} isListed={pet.isListed || false} />
               </CardContent>
             </Card>
           ))}
@@ -567,6 +568,40 @@ function AddPhotoButton({ petId, petName }: { petId: number; petName: string }) 
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function AdoptionListingButton({ petId, petName, isListed }: { petId: number; petName: string; isListed: boolean }) {
+  const listPet = useListPetForAdoption();
+  const delistPet = useDelistPetFromAdoption();
+
+  const handleToggleListing = () => {
+    if (isListed) {
+      delistPet.mutate(petId);
+    } else {
+      listPet.mutate(petId);
+    }
+  };
+
+  return (
+    <Button
+      variant={isListed ? 'destructive' : 'default'}
+      className="w-full"
+      onClick={handleToggleListing}
+      disabled={listPet.isPending || delistPet.isPending}
+    >
+      {listPet.isPending || delistPet.isPending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          {isListed ? 'Removing...' : 'Listing...'}
+        </>
+      ) : (
+        <>
+          <Heart className="mr-2 h-4 w-4" />
+          {isListed ? 'Remove from Adoption' : 'List for Adoption'}
+        </>
+      )}
+    </Button>
   );
 }
 
