@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Plus, MapPin } from 'lucide-react';
 import type { StrayReport, ReportStatus } from '../../types';
-import { getApiBaseUrl } from '../../hooks/useAuth';
+import { getApiBaseUrl, buildApiUrl } from '../../hooks/useAuth';
+import MapPicker from '@/components/MapPicker';
 
 export default function StrayReportsTab() {
   const { data: allReports, isLoading: allLoading } = useListStrayReports();
@@ -61,11 +62,6 @@ export default function StrayReportsTab() {
       {isEmpty ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <img
-              src="/assets/generated/stray-dog-street.dim_600x400.jpg"
-              alt="Stray animal"
-              className="w-64 h-48 object-cover rounded-lg mb-4"
-            />
             <p className="text-muted-foreground mb-4">
               {isNGO 
                 ? 'No reports yet' 
@@ -121,15 +117,6 @@ function StrayReportCard({ report, isNGO }: { report: StrayReport; isNGO: boolea
 
   return (
     <Card>
-      {report.photoUrl && (
-        <div className="aspect-video w-full overflow-hidden bg-muted">
-          <img
-            src={`${getApiBaseUrl()}${report.photoUrl}`}
-            alt="Stray animal"
-            className="h-full w-full object-cover"
-          />
-        </div>
-      )}
       <CardHeader>
         <div className="flex items-start justify-between">
           <CardTitle className="text-lg">Report #{report.id}</CardTitle>
@@ -202,6 +189,7 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const reportStray = useReportStray();
 
   const handleGetLocation = async () => {
@@ -217,6 +205,27 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
     } finally {
       setGeoLoading(false);
     }
+  };
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
+        { headers: { 'Accept': 'application/json' } }
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.display_name as string | null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const handleMapPick = async (lat: number, lng: number) => {
+    setLatitude(lat);
+    setLongitude(lng);
+    const addr = await reverseGeocode(lat, lng);
+    if (addr) setLocation(addr);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -278,6 +287,15 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
               </>
             )}
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowMapPicker(true)}
+            className="w-full mt-2"
+          >
+            <MapPin className="mr-2 h-4 w-4" />
+            Pick on Map
+          </Button>
           {latitude && longitude && (
             <p className="text-xs text-muted-foreground">
               Coordinates: {latitude.toFixed(4)}°, {longitude.toFixed(4)}°
@@ -316,6 +334,13 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
           )}
         </Button>
       </form>
+      <MapPicker
+        open={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onPick={handleMapPick}
+        initialLat={latitude ?? undefined}
+        initialLng={longitude ?? undefined}
+      />
     </>
   );
 }

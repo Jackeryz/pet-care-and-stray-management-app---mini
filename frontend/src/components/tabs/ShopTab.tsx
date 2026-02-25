@@ -138,15 +138,10 @@ export default function ShopTab() {
           </div>
         ) : (
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <img
-                src="/assets/generated/pet-supplies-shelf.dim_800x600.jpg"
-                alt="Pet supplies"
-                className="w-64 h-48 object-cover rounded-lg mb-4"
-              />
-              <p className="text-muted-foreground">No products available</p>
-            </CardContent>
-          </Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <p className="text-muted-foreground">No products available</p>
+              </CardContent>
+            </Card>
         )}
       </div>
 

@@ -55,6 +55,9 @@ const io = new Server(server, {
   },
 });
 
+// Export getIO function for use in controllers
+export const getIO = () => io;
+
 // Store active socket connections per adoption chat (adoptionId -> Set<socketIds>)
 const adoptionChatConnections = new Map<number, Set<string>>();
 
