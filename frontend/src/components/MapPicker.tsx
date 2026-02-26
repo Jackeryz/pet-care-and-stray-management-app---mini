@@ -9,6 +9,11 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
+type NominatimResult = {
+  lat: string;
+  lon: string;
+};
+
 // Fix marker icon paths for Leaflet in many bundlers
 delete (L.Icon.Default as any).prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -90,7 +95,7 @@ export default function MapPicker({
 
       if (!response.ok) throw new Error('Search failed');
 
-      const data = await response.json() as Array<{ lat: string; lon: string }>;
+      const data = await response.json() as NominatimResult[];
       if (!data.length) {
         setSearchError('No place found. Try a more specific search.');
         return;
