@@ -26,7 +26,12 @@ ensureSqliteSchema();
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json());
 
 // Serve uploaded images statically

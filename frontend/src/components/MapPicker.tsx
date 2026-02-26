@@ -31,7 +31,7 @@ export default function MapPicker({
   onPick: (lat: number, lng: number) => void;
 }) {
   const [pos, setPos] = useState<[number, number] | null>(
-    initialLat && initialLng ? [initialLat, initialLng] : null,
+    initialLat != null && initialLng != null ? [initialLat, initialLng] : null,
   );
   const [placeQuery, setPlaceQuery] = useState('');
   const [isLocating, setIsLocating] = useState(false);
@@ -39,11 +39,11 @@ export default function MapPicker({
   const [searchError, setSearchError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialLat && initialLng) setPos([initialLat, initialLng]);
+    if (initialLat != null && initialLng != null) setPos([initialLat, initialLng]);
   }, [initialLat, initialLng]);
 
   useEffect(() => {
-    if (!open || pos || initialLat || initialLng || !navigator.geolocation) return;
+    if (!open || pos || initialLat != null || initialLng != null || !navigator.geolocation) return;
 
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
