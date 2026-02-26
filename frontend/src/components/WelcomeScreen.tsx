@@ -108,6 +108,7 @@ export default function WelcomeScreen() {
                         <SelectItem value="PET_OWNER">Pet Owner</SelectItem>
                         <SelectItem value="VET">Veterinarian</SelectItem>
                         <SelectItem value="NGO">NGO / Rescue Organization</SelectItem>
+                        <SelectItem value="FARMER">Farmer</SelectItem>
                         <SelectItem value="PUBLIC_USER">Public User</SelectItem>
                       </SelectContent>
                     </Select>

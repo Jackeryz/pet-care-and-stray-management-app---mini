@@ -26,8 +26,17 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const STORAGE_KEY = 'pet-mini-auth-token';
 
 export function getApiBaseUrl() {
-  // Vite-style env; falls back to localhost
-  return (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3000';
+  const configured = (import.meta as any).env?.VITE_API_BASE_URL;
+  if (configured) return configured;
+
+  // Helpful LAN fallback for mobile testing: if frontend is opened via
+  // http://<laptop-ip>:5173, API defaults to http://<laptop-ip>:3000.
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname || 'localhost';
+    return `http://${host}:3000`;
+  }
+
+  return 'http://localhost:3000';
 }
 
 // Build a safe URL for API-hosted assets. Trims input and encodes spaces
@@ -54,7 +63,7 @@ async function fetchWithAuth<T>(
   };
 
   if (token) {
-    headers.Authorization = `Bearer ${token}`;
+    (headers as Record<string, string>).Authorization = `Bearer ${token}`;
   }
 
   const res = await fetch(`${baseUrl}${path}`, {
@@ -243,4 +252,3 @@ export async function apiFetch<T>(
   const token = getAuthToken();
   return fetchWithAuth<T>(path, options, token);
 }
-
