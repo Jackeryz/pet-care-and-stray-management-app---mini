@@ -13,9 +13,6 @@ type NominatimResult = {
   lat: string;
   lon: string;
 };
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // Fix marker icon paths for Leaflet in many bundlers
 delete (L.Icon.Default as any).prototype._getIconUrl;
