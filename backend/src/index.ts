@@ -32,6 +32,13 @@ function resolveHttpsMaterial() {
   const keyCandidates = [
     process.env.SSL_KEY_PATH,
     path.resolve(process.cwd(), 'certs/localhost-key.pem'),
+    path.resolve(process.cwd(), 'certs/localhost+1-key.pem'),
+    path.resolve(process.cwd(), 'cert/localhost-key.pem'),
+    path.resolve(process.cwd(), 'cert/localhost+1-key.pem'),
+    path.resolve(process.cwd(), 'localhost-key.pem'),
+    path.resolve(process.cwd(), 'localhost+1-key.pem'),
+    path.resolve(process.cwd(), '.cert/localhost-key.pem'),
+    path.resolve(process.cwd(), '.cert/localhost+1-key.pem'),
     path.resolve(process.cwd(), 'localhost-key.pem'),
     path.resolve(process.cwd(), '.cert/localhost-key.pem'),
   ].filter(Boolean) as string[];
@@ -39,6 +46,13 @@ function resolveHttpsMaterial() {
   const certCandidates = [
     process.env.SSL_CERT_PATH,
     path.resolve(process.cwd(), 'certs/localhost.pem'),
+    path.resolve(process.cwd(), 'certs/localhost+1.pem'),
+    path.resolve(process.cwd(), 'cert/localhost.pem'),
+    path.resolve(process.cwd(), 'cert/localhost+1.pem'),
+    path.resolve(process.cwd(), 'localhost.pem'),
+    path.resolve(process.cwd(), 'localhost+1.pem'),
+    path.resolve(process.cwd(), '.cert/localhost.pem'),
+    path.resolve(process.cwd(), '.cert/localhost+1.pem'),
     path.resolve(process.cwd(), 'localhost.pem'),
     path.resolve(process.cwd(), '.cert/localhost.pem'),
   ].filter(Boolean) as string[];
@@ -107,7 +121,6 @@ const server = USE_HTTPS && httpsMaterial
     )
   : createServer(app);
 
-=======
 const server = (() => {
   if (!USE_HTTPS) return createServer(app);
 
@@ -250,9 +263,5 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log(`HTTPS certificate key: ${httpsMaterial.keyPath}`);
     console.log(`HTTPS certificate cert: ${httpsMaterial.certPath}`);
   }
-  
-  const protocol = USE_HTTPS ? "https" : "http";
-  console.log(`Server running at ${protocol}://localhost:${PORT}`);
-  console.log(`Accessible from other devices at ${protocol}://${ipAddress}:${PORT}`);
 
 });

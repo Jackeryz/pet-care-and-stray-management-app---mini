@@ -14,6 +14,17 @@ function findFirstExisting(paths: Array<string | undefined>) {
 const sslKeyPath = findFirstExisting([
   process.env.VITE_SSL_KEY_PATH,
   path.resolve(process.cwd(), 'certs/localhost-key.pem'),
+  path.resolve(process.cwd(), 'certs/localhost+1-key.pem'),
+  path.resolve(process.cwd(), 'cert/localhost-key.pem'),
+  path.resolve(process.cwd(), 'cert/localhost+1-key.pem'),
+  path.resolve(process.cwd(), '../backend/certs/localhost-key.pem'),
+  path.resolve(process.cwd(), '../backend/certs/localhost+1-key.pem'),
+  path.resolve(process.cwd(), '../backend/cert/localhost-key.pem'),
+  path.resolve(process.cwd(), '../backend/cert/localhost+1-key.pem'),
+  path.resolve(process.cwd(), 'localhost-key.pem'),
+  path.resolve(process.cwd(), 'localhost+1-key.pem'),
+  path.resolve(process.cwd(), '.cert/localhost-key.pem'),
+  path.resolve(process.cwd(), '.cert/localhost+1-key.pem'),
   path.resolve(process.cwd(), 'localhost-key.pem'),
   path.resolve(process.cwd(), '.cert/localhost-key.pem'),
 ]);
@@ -21,6 +32,18 @@ const sslKeyPath = findFirstExisting([
 const sslCertPath = findFirstExisting([
   process.env.VITE_SSL_CERT_PATH,
   path.resolve(process.cwd(), 'certs/localhost.pem'),
+  path.resolve(process.cwd(), 'certs/localhost+1.pem'),
+  path.resolve(process.cwd(), 'cert/localhost.pem'),
+  path.resolve(process.cwd(), 'cert/localhost+1.pem'),
+  path.resolve(process.cwd(), '../backend/certs/localhost.pem'),
+  path.resolve(process.cwd(), '../backend/certs/localhost+1.pem'),
+  path.resolve(process.cwd(), '../backend/cert/localhost.pem'),
+  path.resolve(process.cwd(), '../backend/cert/localhost+1.pem'),
+  path.resolve(process.cwd(), 'localhost.pem'),
+  path.resolve(process.cwd(), 'localhost+1.pem'),
+  path.resolve(process.cwd(), '.cert/localhost.pem'),
+  path.resolve(process.cwd(), '.cert/localhost+1.pem'),
+=======
   path.resolve(process.cwd(), 'localhost.pem'),
   path.resolve(process.cwd(), '.cert/localhost.pem'),
 ]);
@@ -40,8 +63,6 @@ if (httpsForcedOn && !hasCerts) {
 const useHttps = process.env.VITE_USE_HTTPS === 'true';
 const sslKeyPath = process.env.VITE_SSL_KEY_PATH;
 const sslCertPath = process.env.VITE_SSL_CERT_PATH;
-
-
 const httpsConfig =
   useHttps && sslKeyPath && sslCertPath
     ? {
