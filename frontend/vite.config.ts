@@ -36,6 +36,12 @@ if (httpsForcedOn && !hasCerts) {
   );
 }
 
+
+const useHttps = process.env.VITE_USE_HTTPS === 'true';
+const sslKeyPath = process.env.VITE_SSL_KEY_PATH;
+const sslCertPath = process.env.VITE_SSL_CERT_PATH;
+
+
 const httpsConfig =
   useHttps && sslKeyPath && sslCertPath
     ? {
@@ -44,7 +50,9 @@ const httpsConfig =
       }
     : useHttps;
 
+
 const defaultBackendTarget = `${useHttps ? 'https' : 'http'}://localhost:3000`;
+
 
 export default defineConfig({
   plugins: [react()],

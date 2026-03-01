@@ -30,6 +30,17 @@ Enable HTTPS (default when PEM files are present)
    - SSL_CERT_PATH=<absolute-path-to-cert.pem>
    Frontend (frontend/.env):
    - VITE_USE_HTTPS=true   # force on (or false to force off)
+=======
+Enable HTTPS (optional, recommended for phone testing)
+1) Create/trust a local certificate (example with mkcert)
+   - mkcert -install
+   - mkcert localhost 127.0.0.1 ::1 <your-laptop-ip>
+2) Backend env (in backend/.env)
+   - USE_HTTPS=true
+   - SSL_KEY_PATH=<absolute-path-to-key.pem>
+   - SSL_CERT_PATH=<absolute-path-to-cert.pem>
+3) Frontend env (in frontend/.env)
+   - VITE_USE_HTTPS=true
    - VITE_SSL_KEY_PATH=<absolute-path-to-key.pem>
    - VITE_SSL_CERT_PATH=<absolute-path-to-cert.pem>
    - VITE_BACKEND_URL=https://<your-laptop-ip>:3000

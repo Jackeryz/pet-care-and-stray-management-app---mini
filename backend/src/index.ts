@@ -66,6 +66,10 @@ if (httpsForcedOn && !httpsMaterial) {
     "USE_HTTPS=true but no certificate files were found. Set SSL_KEY_PATH/SSL_CERT_PATH or place certs in certs/",
   );
 }
+const USE_HTTPS = process.env.USE_HTTPS === "true";
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH;
+
 
 app.use(cors({
   origin: true,
@@ -103,6 +107,19 @@ const server = USE_HTTPS && httpsMaterial
     )
   : createServer(app);
 
+=======
+const server = (() => {
+  if (!USE_HTTPS) return createServer(app);
+
+  if (!SSL_KEY_PATH || !SSL_CERT_PATH) {
+    throw new Error("USE_HTTPS is true but SSL_KEY_PATH/SSL_CERT_PATH are not set");
+  }
+
+  return createHttpsServer({
+    key: fs.readFileSync(SSL_KEY_PATH),
+    cert: fs.readFileSync(SSL_CERT_PATH),
+  }, app);
+})();
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -233,4 +250,9 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log(`HTTPS certificate key: ${httpsMaterial.keyPath}`);
     console.log(`HTTPS certificate cert: ${httpsMaterial.certPath}`);
   }
+  
+  const protocol = USE_HTTPS ? "https" : "http";
+  console.log(`Server running at ${protocol}://localhost:${PORT}`);
+  console.log(`Accessible from other devices at ${protocol}://${ipAddress}:${PORT}`);
+
 });
