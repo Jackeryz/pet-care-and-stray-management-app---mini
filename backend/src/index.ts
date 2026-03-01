@@ -3,6 +3,8 @@ import cors from "cors";
 import path from "path";
 import os from "os";
 import { createServer } from "http";
+import { createServer as createHttpsServer } from "https";
+import fs from "fs";
 import { Server } from "socket.io";
 import authRoutes from "./routes/authRoutes";
 import petRoutes from "./routes/petRoutes";
@@ -25,6 +27,9 @@ ensureSqliteSchema();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
+const USE_HTTPS = process.env.USE_HTTPS === "true";
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH;
 
 app.use(cors({
   origin: true,
@@ -51,8 +56,19 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/vaccinations', vaccinationRoutes);
 
-// Create HTTP server with Socket.io
-const server = createServer(app);
+// Create HTTP/HTTPS server with Socket.io
+const server = (() => {
+  if (!USE_HTTPS) return createServer(app);
+
+  if (!SSL_KEY_PATH || !SSL_CERT_PATH) {
+    throw new Error("USE_HTTPS is true but SSL_KEY_PATH/SSL_CERT_PATH are not set");
+  }
+
+  return createHttpsServer({
+    key: fs.readFileSync(SSL_KEY_PATH),
+    cert: fs.readFileSync(SSL_CERT_PATH),
+  }, app);
+})();
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -176,6 +192,7 @@ server.listen(PORT, "0.0.0.0", () => {
     }
   }
   
-  console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`Accessible from other devices at http://${ipAddress}:${PORT}`);
+  const protocol = USE_HTTPS ? "https" : "http";
+  console.log(`Server running at ${protocol}://localhost:${PORT}`);
+  console.log(`Accessible from other devices at ${protocol}://${ipAddress}:${PORT}`);
 });

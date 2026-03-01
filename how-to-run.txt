@@ -15,6 +15,23 @@ Update .env file with your backend IP address:
 npm run dev (Vite dev server on 0.0.0.0:5173, accessible from other devices)
 
 
+Enable HTTPS (optional, recommended for phone testing)
+1) Create/trust a local certificate (example with mkcert)
+   - mkcert -install
+   - mkcert localhost 127.0.0.1 ::1 <your-laptop-ip>
+2) Backend env (in backend/.env)
+   - USE_HTTPS=true
+   - SSL_KEY_PATH=<absolute-path-to-key.pem>
+   - SSL_CERT_PATH=<absolute-path-to-cert.pem>
+3) Frontend env (in frontend/.env)
+   - VITE_USE_HTTPS=true
+   - VITE_SSL_KEY_PATH=<absolute-path-to-key.pem>
+   - VITE_SSL_CERT_PATH=<absolute-path-to-cert.pem>
+   - VITE_BACKEND_URL=https://<your-laptop-ip>:3000
+4) Start backend + frontend again and open:
+   - https://<your-laptop-ip>:5173
+
+
 Access on Mobile Device
 1. Find the IP address of the machine running the frontend:
    - Windows: Run `ipconfig` in terminal and look for "IPv4 Address" (usually 10.x.x.x)
