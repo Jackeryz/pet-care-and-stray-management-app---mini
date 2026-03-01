@@ -25,6 +25,8 @@ const sslKeyPath = findFirstExisting([
   path.resolve(process.cwd(), 'localhost+1-key.pem'),
   path.resolve(process.cwd(), '.cert/localhost-key.pem'),
   path.resolve(process.cwd(), '.cert/localhost+1-key.pem'),
+  path.resolve(process.cwd(), 'localhost-key.pem'),
+  path.resolve(process.cwd(), '.cert/localhost-key.pem'),
 ]);
 
 const sslCertPath = findFirstExisting([
@@ -41,6 +43,9 @@ const sslCertPath = findFirstExisting([
   path.resolve(process.cwd(), 'localhost+1.pem'),
   path.resolve(process.cwd(), '.cert/localhost.pem'),
   path.resolve(process.cwd(), '.cert/localhost+1.pem'),
+=======
+  path.resolve(process.cwd(), 'localhost.pem'),
+  path.resolve(process.cwd(), '.cert/localhost.pem'),
 ]);
 
 const httpsForcedOff = process.env.VITE_USE_HTTPS === 'false';
@@ -54,6 +59,10 @@ if (httpsForcedOn && !hasCerts) {
   );
 }
 
+
+const useHttps = process.env.VITE_USE_HTTPS === 'true';
+const sslKeyPath = process.env.VITE_SSL_KEY_PATH;
+const sslCertPath = process.env.VITE_SSL_CERT_PATH;
 const httpsConfig =
   useHttps && sslKeyPath && sslCertPath
     ? {
@@ -62,7 +71,9 @@ const httpsConfig =
       }
     : useHttps;
 
+
 const defaultBackendTarget = `${useHttps ? 'https' : 'http'}://localhost:3000`;
+
 
 export default defineConfig({
   plugins: [react()],
