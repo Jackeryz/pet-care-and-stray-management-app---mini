@@ -9,12 +9,14 @@ import AdminTab from '../components/tabs/AdminTab';
 import BlogTab from '../components/tabs/BlogTab';
 import SettingsTab from '../components/tabs/SettingsTab';
 import VaccinationsTab from '../components/tabs/VaccinationsTab';
-import { PawPrint, AlertCircle, Heart, ShoppingBag, Shield, MessageSquare, Settings, Syringe } from 'lucide-react';
+import LivestockTab from '../components/tabs/LivestockTab';
+import { PawPrint, AlertCircle, Heart, ShoppingBag, Shield, MessageSquare, Settings, Syringe, Tractor } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { data: userProfile } = useGetCallerUserProfile();
   const isAdmin = user?.role === 'ADMIN';
+  const isFarmer = user?.role === 'FARMER';
 
   return (
     <div className="container py-8">
@@ -28,7 +30,7 @@ export default function Dashboard() {
       </div>
 
       <Tabs defaultValue="pets" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7 lg:grid-cols-8">
+        <TabsList className="grid w-full grid-cols-8 lg:grid-cols-9">
           <TabsTrigger value="pets" className="gap-2">
             <PawPrint className="h-4 w-4" />
             <span className="hidden sm:inline">My Pets</span>
@@ -49,6 +51,13 @@ export default function Dashboard() {
             <ShoppingBag className="h-4 w-4" />
             <span className="hidden sm:inline">Shop</span>
           </TabsTrigger>
+
+          {isFarmer && (
+            <TabsTrigger value="livestock" className="gap-2">
+              <Tractor className="h-4 w-4" />
+              <span className="hidden sm:inline">Livestock</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="blog" className="gap-2">
             <MessageSquare className="h-4 w-4" />
             <span className="hidden sm:inline">Blog</span>
@@ -80,6 +89,13 @@ export default function Dashboard() {
         <TabsContent value="adoption" className="space-y-4">
           <AdoptionTab />
         </TabsContent>
+
+
+        {isFarmer && (
+          <TabsContent value="livestock" className="space-y-4">
+            <LivestockTab />
+          </TabsContent>
+        )}
 
         <TabsContent value="shop" className="space-y-4">
           <ShopTab />
