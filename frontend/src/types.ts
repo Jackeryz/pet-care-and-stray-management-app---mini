@@ -1,6 +1,6 @@
 // Shared TypeScript types for the frontend, aligned with the Node backend models.
 
-export type Role = 'ADMIN' | 'PET_OWNER' | 'VET' | 'NGO' | 'PUBLIC_USER';
+export type Role = 'ADMIN' | 'PET_OWNER' | 'VET' | 'NGO' | 'PUBLIC_USER' | 'FARMER';
 
 export interface UserProfile {
   id: string;
