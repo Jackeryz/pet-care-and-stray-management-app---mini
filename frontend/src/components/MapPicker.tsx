@@ -14,6 +14,10 @@ type NominatimResult = {
   lon: string;
 };
 
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
 // Fix marker icon paths for Leaflet in many bundlers
 delete (L.Icon.Default as any).prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -109,7 +113,8 @@ export default function MapPicker({
     }
   };
 
-  const mapProps = {
+
+const mapProps = {
     bounds: [
       [-90, -180],
       [90, 180],
