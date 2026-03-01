@@ -17,7 +17,7 @@ import notificationRoutes from './routes/notificationRoutes';
 import chatRoutes from './routes/chatRoutes';
 import blogRoutes from './routes/blogRoutes';
 import vaccinationRoutes from './routes/vaccinationRoutes';
-import { insertChatMessage, getChatMessages, markChatMessagesAsRead } from './database/sqliteSetup';
+import { insertChatMessage } from './database/sqliteSetup';
 import { prisma } from './database/db';
 
 dotenv.config();
@@ -27,9 +27,49 @@ ensureSqliteSchema();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
+
+function resolveHttpsMaterial() {
+  const keyCandidates = [
+    process.env.SSL_KEY_PATH,
+    path.resolve(process.cwd(), 'certs/localhost-key.pem'),
+    path.resolve(process.cwd(), 'localhost-key.pem'),
+    path.resolve(process.cwd(), '.cert/localhost-key.pem'),
+  ].filter(Boolean) as string[];
+
+  const certCandidates = [
+    process.env.SSL_CERT_PATH,
+    path.resolve(process.cwd(), 'certs/localhost.pem'),
+    path.resolve(process.cwd(), 'localhost.pem'),
+    path.resolve(process.cwd(), '.cert/localhost.pem'),
+  ].filter(Boolean) as string[];
+
+  const keyPath = keyCandidates.find((candidate) => fs.existsSync(candidate));
+  const certPath = certCandidates.find((candidate) => fs.existsSync(candidate));
+
+  if (!keyPath || !certPath) return null;
+
+  return {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath),
+    keyPath,
+    certPath,
+  };
+}
+
+const httpsMaterial = resolveHttpsMaterial();
+const httpsForcedOff = process.env.USE_HTTPS === 'false';
+const httpsForcedOn = process.env.USE_HTTPS === 'true';
+const USE_HTTPS = httpsForcedOff ? false : httpsForcedOn || !!httpsMaterial;
+
+if (httpsForcedOn && !httpsMaterial) {
+  throw new Error(
+    "USE_HTTPS=true but no certificate files were found. Set SSL_KEY_PATH/SSL_CERT_PATH or place certs in certs/",
+  );
+}
 const USE_HTTPS = process.env.USE_HTTPS === "true";
 const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
 const SSL_CERT_PATH = process.env.SSL_CERT_PATH;
+
 
 app.use(cors({
   origin: true,
@@ -57,6 +97,17 @@ app.use('/api/blog', blogRoutes);
 app.use('/api/vaccinations', vaccinationRoutes);
 
 // Create HTTP/HTTPS server with Socket.io
+const server = USE_HTTPS && httpsMaterial
+  ? createHttpsServer(
+      {
+        key: httpsMaterial.key,
+        cert: httpsMaterial.cert,
+      },
+      app,
+    )
+  : createServer(app);
+
+=======
 const server = (() => {
   if (!USE_HTTPS) return createServer(app);
 
@@ -97,7 +148,7 @@ io.on("connection", (socket) => {
     adoptionChatConnections.get(adoptionRecordId)!.add(socket.id);
 
     console.log(`User ${userId} joined adoption chat ${adoptionRecordId}`);
-    
+
     // Notify others that user joined
     socket.to(roomName).emit("user-joined", { userId });
   });
@@ -150,7 +201,7 @@ io.on("connection", (socket) => {
         console.error("Error sending message:", error);
         socket.emit("error", { message: "Failed to send message" });
       }
-    }
+    },
   );
 
   // Leave adoption chat room
@@ -177,22 +228,31 @@ io.on("connection", (socket) => {
 server.listen(PORT, "0.0.0.0", () => {
   const interfaces = os.networkInterfaces();
   let ipAddress = "localhost";
-  
+
   // Get the local IP address
-  for (const [name, addrs] of Object.entries(interfaces)) {
-    if (addrs) {
-      for (const addr of addrs) {
-        // Skip internal and non-IPv4 addresses
-        if (addr.family === "IPv4" && !addr.internal) {
-          ipAddress = addr.address;
-          break;
-        }
+  for (const addrs of Object.values(interfaces)) {
+    if (!addrs) continue;
+    for (const addr of addrs) {
+      // Skip internal and non-IPv4 addresses
+      if (addr.family === "IPv4" && !addr.internal) {
+        ipAddress = addr.address;
+        break;
       }
-      if (ipAddress !== "localhost") break;
     }
+    if (ipAddress !== "localhost") break;
+  }
+
+  const protocol = USE_HTTPS ? "https" : "http";
+  console.log(`Server running at ${protocol}://localhost:${PORT}`);
+  console.log(`Accessible from other devices at ${protocol}://${ipAddress}:${PORT}`);
+
+  if (USE_HTTPS && httpsMaterial) {
+    console.log(`HTTPS certificate key: ${httpsMaterial.keyPath}`);
+    console.log(`HTTPS certificate cert: ${httpsMaterial.certPath}`);
   }
   
   const protocol = USE_HTTPS ? "https" : "http";
   console.log(`Server running at ${protocol}://localhost:${PORT}`);
   console.log(`Accessible from other devices at ${protocol}://${ipAddress}:${PORT}`);
+
 });
