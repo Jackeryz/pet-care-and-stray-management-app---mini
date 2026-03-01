@@ -9,7 +9,9 @@
     "build": "tsc",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "predev": "prisma generate",
+    "prestart": "prisma generate"
   },
   "keywords": [],
   "author": "",
