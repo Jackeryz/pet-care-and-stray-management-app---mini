@@ -20,7 +20,13 @@ Enable HTTPS (default when PEM files are present)
    - mkcert -install
    - mkcert localhost 127.0.0.1 ::1 <your-laptop-ip>
 2) Place cert files in one of these locations (auto-detected):
+<<<<<<< ours
    - backend/certs/localhost-key.pem + backend/certs/localhost.pem
+=======
+   - backend/cert/localhost+1-key.pem + backend/cert/localhost+1.pem
+   - backend/certs/localhost-key.pem + backend/certs/localhost.pem
+   - frontend/cert/localhost+1-key.pem + frontend/cert/localhost+1.pem
+>>>>>>> theirs
    - frontend/certs/localhost-key.pem + frontend/certs/localhost.pem
    (or use env paths below)
 3) Optional explicit env overrides
@@ -30,6 +36,10 @@ Enable HTTPS (default when PEM files are present)
    - SSL_CERT_PATH=<absolute-path-to-cert.pem>
    Frontend (frontend/.env):
    - VITE_USE_HTTPS=true   # force on (or false to force off)
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
 Enable HTTPS (optional, recommended for phone testing)
 1) Create/trust a local certificate (example with mkcert)
@@ -41,6 +51,14 @@ Enable HTTPS (optional, recommended for phone testing)
    - SSL_CERT_PATH=<absolute-path-to-cert.pem>
 3) Frontend env (in frontend/.env)
    - VITE_USE_HTTPS=true
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
    - VITE_SSL_KEY_PATH=<absolute-path-to-key.pem>
    - VITE_SSL_CERT_PATH=<absolute-path-to-cert.pem>
    - VITE_BACKEND_URL=https://<your-laptop-ip>:3000
@@ -53,7 +71,11 @@ Access on Mobile Device
    - Windows: Run `ipconfig` in terminal and look for "IPv4 Address" (usually 10.x.x.x)
    - Mac/Linux: Run `ifconfig` and look for inet address (usually 192.168.x.x)
 2. On your mobile device, open: https://<frontend-machine-ip>:5173 (or http if HTTPS is forced off)
+<<<<<<< ours
    Example: http://10.119.147.144:5173
+=======
+   Example: https://10.119.147.144:5173
+>>>>>>> theirs
 3. The frontend will connect to the backend at the IP specified in .env file
 
 if you're trying to restart backend but the port is already being used from before

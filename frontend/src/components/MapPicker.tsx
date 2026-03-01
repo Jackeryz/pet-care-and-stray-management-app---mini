@@ -109,7 +109,23 @@ export default function MapPicker({
     }
   };
 
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 const mapProps = {
+=======
+  const mapProps = {
+>>>>>>> theirs
+=======
+  const mapProps = {
+>>>>>>> theirs
+=======
+  const mapProps = {
+>>>>>>> theirs
+=======
+  const mapProps = {
+>>>>>>> theirs
     bounds: [
       [-90, -180],
       [90, 180],

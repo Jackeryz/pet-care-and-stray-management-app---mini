@@ -32,15 +32,35 @@ function resolveHttpsMaterial() {
   const keyCandidates = [
     process.env.SSL_KEY_PATH,
     path.resolve(process.cwd(), 'certs/localhost-key.pem'),
+<<<<<<< ours
     path.resolve(process.cwd(), 'localhost-key.pem'),
     path.resolve(process.cwd(), '.cert/localhost-key.pem'),
+=======
+    path.resolve(process.cwd(), 'certs/localhost+1-key.pem'),
+    path.resolve(process.cwd(), 'cert/localhost-key.pem'),
+    path.resolve(process.cwd(), 'cert/localhost+1-key.pem'),
+    path.resolve(process.cwd(), 'localhost-key.pem'),
+    path.resolve(process.cwd(), 'localhost+1-key.pem'),
+    path.resolve(process.cwd(), '.cert/localhost-key.pem'),
+    path.resolve(process.cwd(), '.cert/localhost+1-key.pem'),
+>>>>>>> theirs
   ].filter(Boolean) as string[];
 
   const certCandidates = [
     process.env.SSL_CERT_PATH,
     path.resolve(process.cwd(), 'certs/localhost.pem'),
+<<<<<<< ours
     path.resolve(process.cwd(), 'localhost.pem'),
     path.resolve(process.cwd(), '.cert/localhost.pem'),
+=======
+    path.resolve(process.cwd(), 'certs/localhost+1.pem'),
+    path.resolve(process.cwd(), 'cert/localhost.pem'),
+    path.resolve(process.cwd(), 'cert/localhost+1.pem'),
+    path.resolve(process.cwd(), 'localhost.pem'),
+    path.resolve(process.cwd(), 'localhost+1.pem'),
+    path.resolve(process.cwd(), '.cert/localhost.pem'),
+    path.resolve(process.cwd(), '.cert/localhost+1.pem'),
+>>>>>>> theirs
   ].filter(Boolean) as string[];
 
   const keyPath = keyCandidates.find((candidate) => fs.existsSync(candidate));
@@ -57,6 +77,32 @@ function resolveHttpsMaterial() {
 }
 
 const httpsMaterial = resolveHttpsMaterial();
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+
+// Determine whether to run HTTPS. Environment variable `USE_HTTPS` can be set
+// to "false" to disable it even if certs are present; otherwise HTTPS is used
+// automatically when certificate material is found. If the variable is
+// explicitly true but no certs exist, throw so the developer knows.
+const httpsForcedOff = process.env.USE_HTTPS === 'false';
+const httpsForcedOn = process.env.USE_HTTPS === 'true';
+const USE_HTTPS = httpsForcedOff ? false : httpsForcedOn || !!httpsMaterial;
+if (httpsForcedOn && !httpsMaterial) {
+  throw new Error(
+    "USE_HTTPS=true but no certificate files were found. set SSL_KEY_PATH/SSL_CERT_PATH or place certs in certs/",
+  );
+}
+
+
+=======
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 const httpsForcedOff = process.env.USE_HTTPS === 'false';
 const httpsForcedOn = process.env.USE_HTTPS === 'true';
 const USE_HTTPS = httpsForcedOff ? false : httpsForcedOn || !!httpsMaterial;
@@ -66,11 +112,17 @@ if (httpsForcedOn && !httpsMaterial) {
     "USE_HTTPS=true but no certificate files were found. Set SSL_KEY_PATH/SSL_CERT_PATH or place certs in certs/",
   );
 }
-const USE_HTTPS = process.env.USE_HTTPS === "true";
-const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
-const SSL_CERT_PATH = process.env.SSL_CERT_PATH;
 
-
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 app.use(cors({
   origin: true,
   credentials: true,
@@ -96,6 +148,38 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/vaccinations', vaccinationRoutes);
 
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+// Create HTTP or HTTPS server depending on configuration
+const server = (() => {
+  if (!USE_HTTPS) {
+    return createServer(app);
+  }
+  // if we've got cert material from resolveHttpsMaterial, use it; otherwise
+  // fall back to reading from SSL_KEY_PATH / SSL_CERT_PATH env vars.
+  if (httpsMaterial) {
+    return createHttpsServer({ key: httpsMaterial.key, cert: httpsMaterial.cert }, app);
+  }
+  if (!process.env.SSL_KEY_PATH || !process.env.SSL_CERT_PATH) {
+    throw new Error("USE_HTTPS is true but SSL_KEY_PATH/SSL_CERT_PATH are not set");
+  }
+  return createHttpsServer(
+    {
+      key: fs.readFileSync(process.env.SSL_KEY_PATH),
+      cert: fs.readFileSync(process.env.SSL_CERT_PATH),
+    },
+    app,
+  );
+})();
+=======
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 // Create HTTP/HTTPS server with Socket.io
 const server = USE_HTTPS && httpsMaterial
   ? createHttpsServer(
@@ -107,19 +191,16 @@ const server = USE_HTTPS && httpsMaterial
     )
   : createServer(app);
 
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
 =======
-const server = (() => {
-  if (!USE_HTTPS) return createServer(app);
-
-  if (!SSL_KEY_PATH || !SSL_CERT_PATH) {
-    throw new Error("USE_HTTPS is true but SSL_KEY_PATH/SSL_CERT_PATH are not set");
-  }
-
-  return createHttpsServer({
-    key: fs.readFileSync(SSL_KEY_PATH),
-    cert: fs.readFileSync(SSL_CERT_PATH),
-  }, app);
-})();
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -240,6 +321,10 @@ server.listen(PORT, "0.0.0.0", () => {
       }
     }
     if (ipAddress !== "localhost") break;
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
   }
 
   const protocol = USE_HTTPS ? "https" : "http";
@@ -250,9 +335,32 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log(`HTTPS certificate key: ${httpsMaterial.keyPath}`);
     console.log(`HTTPS certificate cert: ${httpsMaterial.certPath}`);
   }
-  
+
+=======
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+  }
+
   const protocol = USE_HTTPS ? "https" : "http";
   console.log(`Server running at ${protocol}://localhost:${PORT}`);
   console.log(`Accessible from other devices at ${protocol}://${ipAddress}:${PORT}`);
 
+  if (USE_HTTPS && httpsMaterial) {
+    console.log(`HTTPS certificate key: ${httpsMaterial.keyPath}`);
+    console.log(`HTTPS certificate cert: ${httpsMaterial.certPath}`);
+  }
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 });
