@@ -109,7 +109,6 @@ export default function MapPicker({
     }
   };
 
-
 const mapProps = {
     bounds: [
       [-90, -180],
