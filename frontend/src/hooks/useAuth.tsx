@@ -26,17 +26,17 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const STORAGE_KEY = 'pet-mini-auth-token';
 
 export function getApiBaseUrl() {
-  const configured = (import.meta as any).env?.VITE_API_BASE_URL;
+  const configured = (import.meta as any).env?.VITE_BACKEND_URL;
   if (configured) return configured;
 
   // Helpful LAN fallback for mobile testing: if frontend is opened via
-  // http://<laptop-ip>:5173, API defaults to http://<laptop-ip>:3000.
+  // https://<laptop-ip>:5173, API defaults to https://<laptop-ip>:3000.
   if (typeof window !== 'undefined') {
     const host = window.location.hostname || 'localhost';
-    return `http://${host}:3000`;
+    return `https://${host}:3000`;
   }
 
-  return 'http://localhost:3000';
+  return 'https://localhost:3000';
 }
 
 // Build a safe URL for API-hosted assets. Trims input and encodes spaces
@@ -56,7 +56,6 @@ async function fetchWithAuth<T>(
   options: RequestInit = {},
   token: string | null,
 ): Promise<T> {
-  const baseUrl = getApiBaseUrl();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
@@ -66,7 +65,7 @@ async function fetchWithAuth<T>(
     (headers as Record<string, string>).Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${baseUrl}${path}`, {
+  const res = await fetch(path, {
     ...options,
     headers,
   });
@@ -128,8 +127,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
     async (email: string, password: string) => {
       setStatus('authenticating');
       try {
-        const baseUrl = getApiBaseUrl();
-        const res = await fetch(`${baseUrl}/api/auth/login`, {
+        const res = await fetch(`/api/auth/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -172,8 +170,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
     ) => {
       setStatus('authenticating');
       try {
-        const baseUrl = getApiBaseUrl();
-        const res = await fetch(`${baseUrl}/api/auth/register`, {
+        const res = await fetch(`/api/auth/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

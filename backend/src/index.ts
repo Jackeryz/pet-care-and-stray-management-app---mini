@@ -2,7 +2,8 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import os from "os";
-import { createServer } from "http";
+import { createServer } from "https";
+import fs from "fs";
 import { Server } from "socket.io";
 import authRoutes from "./routes/authRoutes";
 import petRoutes from "./routes/petRoutes";
@@ -27,7 +28,14 @@ const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
 app.use(cors({
-  origin: true,
+  origin: (origin, callback) => {
+    // Allow HTTPS frontend and localhost
+    if (!origin || origin.startsWith('https://')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -51,8 +59,13 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/vaccinations', vaccinationRoutes);
 
-// Create HTTP server with Socket.io
-const server = createServer(app);
+// Create HTTPS server with Socket.io
+const certPath = path.join(__dirname, '../cert/localhost+1.pem');
+const keyPath = path.join(__dirname, '../cert/localhost+1-key.pem');
+const server = createServer({
+  key: fs.readFileSync(keyPath),
+  cert: fs.readFileSync(certPath)
+}, app);
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -161,7 +174,6 @@ io.on("connection", (socket) => {
 server.listen(PORT, "0.0.0.0", () => {
   const interfaces = os.networkInterfaces();
   let ipAddress = "localhost";
-  
   // Get the local IP address
   for (const [name, addrs] of Object.entries(interfaces)) {
     if (addrs) {
@@ -175,7 +187,6 @@ server.listen(PORT, "0.0.0.0", () => {
       if (ipAddress !== "localhost") break;
     }
   }
-  
-  console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`Accessible from other devices at http://${ipAddress}:${PORT}`);
+  console.log(`Server running at https://localhost:${PORT}`);
+  console.log(`Accessible from other devices at https://${ipAddress}:${PORT}`);
 });
