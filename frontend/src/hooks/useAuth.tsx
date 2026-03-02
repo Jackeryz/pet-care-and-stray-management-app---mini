@@ -33,6 +33,11 @@ export function getApiBaseUrl() {
     const host = window.location.hostname || 'localhost';
     const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
     return `${protocol}://${host}:3000`;
+  // Helpful LAN fallback for mobile testing: if frontend is opened via
+  // http://<laptop-ip>:5173, API defaults to http://<laptop-ip>:3000.
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname || 'localhost';
+    return `http://${host}:3000`;
   }
 
   return 'http://localhost:3000';

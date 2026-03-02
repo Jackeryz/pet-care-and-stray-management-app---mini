@@ -28,6 +28,7 @@ ensureSqliteSchema();
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
+
 function resolveHttpsMaterial() {
   const keyCandidates = [
     process.env.SSL_KEY_PATH,

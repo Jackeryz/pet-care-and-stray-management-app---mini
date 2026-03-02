@@ -13,6 +13,9 @@
     "check:conflicts": "rg -n \"^(<<<<<<<|=======|>>>>>>>)\" . --glob '!node_modules/**' --glob '!dist/**' --glob '!.git/**' && exit 1 || echo 'No merge conflict markers found in frontend'",
     "predev": "npm run check:conflicts",
     "prebuild": "npm run check:conflicts"
+
+    "check:conflicts": "rg -n \"^<<<<<<<|^=======|^>>>>>>>\" src && exit 1 || echo 'No merge conflict markers found in src'"
+
   },
   "devDependencies": {
     "@eslint/js": "~9.27.0",
