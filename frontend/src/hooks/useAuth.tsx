@@ -29,11 +29,10 @@ export function getApiBaseUrl() {
   const configured = (import.meta as any).env?.VITE_API_BASE_URL;
   if (configured) return configured;
 
-  // Helpful LAN fallback for mobile testing: if frontend is opened via
-  // http://<laptop-ip>:5173, API defaults to http://<laptop-ip>:3000.
   if (typeof window !== 'undefined') {
     const host = window.location.hostname || 'localhost';
-    return `http://${host}:3000`;
+    const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
+    return `${protocol}://${host}:3000`;
   }
 
   return 'http://localhost:3000';
