@@ -24,8 +24,11 @@ Access on Mobile Device
 3. The frontend will connect to the backend at the IP specified in .env file
 
 if you're trying to restart backend but the port is already being used from before
-# find out what's using port 3000
+# 1. find the PID
 netstat -ano | findstr :3000
 
-# Kill it (replace XXXX with the PID from above)
-Stop-Process -Id XXXX -Force
+# 2. kill it with taskkill (works even if Stop-Process is blocked)
+taskkill /PID 5232 /F
+
+# –or– kill every Node process so nothing can bind to 3000:
+taskkill /IM node.exe /F
