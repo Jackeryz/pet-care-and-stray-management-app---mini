@@ -10,8 +10,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:studio": "prisma studio",
-    "predev": "prisma generate",
-    "prestart": "prisma generate"
+    "predev": "npm run check:conflicts && prisma generate",
+    "prestart": "npm run check:conflicts && prisma generate",
+    "check:conflicts": "rg -n \"^(<<<<<<<|=======|>>>>>>>)\" src prisma package.json && exit 1 || echo 'No merge conflict markers found in backend'"
   },
   "keywords": [],
   "author": "",
