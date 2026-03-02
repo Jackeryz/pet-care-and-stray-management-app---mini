@@ -7,10 +7,13 @@ import { generateUniqueUsername } from "../database/sqliteSetup";
 
 function getSecretKey(): string {
   const key = process.env.JWT_SECRET;
-  if (!key) {
-    throw new Error("JWT_SECRET environment variable is not set");
+  if (key) return key;
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET environment variable is not set');
   }
-  return key;
+
+  return 'dev-insecure-jwt-secret-change-me';
 }
 
 // Register User
