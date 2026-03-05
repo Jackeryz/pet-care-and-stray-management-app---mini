@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   useListAdoptionRecords,
   useCreateAdoptionRequest,
@@ -8,6 +8,7 @@ import {
   useAcceptAdoptionRequest,
   useRejectAdoptionRequest,
 } from '../../hooks/useQueries';
+import { useAdoptionRequestNotifications } from '../../hooks/useSocket';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,20 +16,36 @@ import { Loader2, Heart, MessageCircle, Check, X, MapPin } from 'lucide-react';
 import type { Pet } from '../../types';
 import { getApiBaseUrl, buildApiUrl } from '../../hooks/useAuth';
 import { AdoptionChatModal } from '../AdoptionChatModal';
+import { toast } from 'sonner';
 
 export default function AdoptionTab() {
-  const { data: adoptionRecords, isLoading: requestsLoading } = useListAdoptionRecords();
+  const { data: adoptionRecords, isLoading: requestsLoading, refetch } = useListAdoptionRecords();
   const { data: availablePets, isLoading: petsLoading } = useGetAvailablePetsForAdoption();
   const { data: currentUser } = useGetCallerUserProfile();
   const { data: unreadData } = useGetUnreadChatCount();
+  const { onAdoptionRequestReceived } = useAdoptionRequestNotifications();
   const createRequest = useCreateAdoptionRequest();
   const acceptRequest = useAcceptAdoptionRequest();
   const rejectRequest = useRejectAdoptionRequest();
 
   const [selectedAdoption, setSelectedAdoption] = useState<any | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [newRequestNotification, setNewRequestNotification] = useState<any | null>(null);
 
   const isLoading = requestsLoading || petsLoading;
+
+  // Listen for real-time adoption request notifications
+  useEffect(() => {
+    onAdoptionRequestReceived((data) => {
+      console.log('New adoption request received:', data);
+      toast.success(`${data.applicantName} requested to adopt ${data.petName}!`, {
+        duration: 5000,
+      });
+      setNewRequestNotification(data);
+      // Refetch adoption records to show new request
+      refetch();
+    });
+  }, [onAdoptionRequestReceived, refetch]);
 
   if (isLoading) {
     return (
@@ -81,6 +98,7 @@ export default function AdoptionTab() {
                     onReject={() => rejectRequest.mutate(record.id)}
                     isAccepting={acceptRequest.isPending}
                     isRejecting={rejectRequest.isPending}
+                    onChatClick={() => handleOpenChat(record)}
                   />
                 );
               })}
@@ -222,6 +240,7 @@ function InboundRequestCard({
   onReject,
   isAccepting,
   isRejecting,
+  onChatClick,
 }: {
   record: any;
   pet?: Pet;
@@ -230,6 +249,7 @@ function InboundRequestCard({
   onReject: () => void;
   isAccepting: boolean;
   isRejecting: boolean;
+  onChatClick?: () => void;
 }) {
   return (
     <Card>
@@ -265,6 +285,16 @@ function InboundRequestCard({
             <p className="text-muted-foreground text-xs">{record.applicant.email}</p>
           </div>
         )}
+
+        {/* Chat Button */}
+        <Button
+          variant="secondary"
+          className="w-full"
+          onClick={onChatClick}
+        >
+          <MessageCircle className="mr-2 h-4 w-4" />
+          Chat with Applicant
+        </Button>
 
         <div className="flex gap-2 pt-2">
           <Button
@@ -368,15 +398,15 @@ function MyRequestCard({
           </div>
         )}
 
-        {/* Chat Button - Only show for approved adoptions */}
-        {record.status === 'APPROVED' && (
+        {/* Chat Button - Show for PENDING (discussing) and APPROVED (ongoing) adoptions */}
+        {['PENDING', 'APPROVED'].includes(record.status) && (
           <Button
             variant="outline"
             className="w-full mt-2"
             onClick={onChatClick}
           >
             <MessageCircle className="mr-2 h-4 w-4" />
-            Chat
+            Chat with Owner
             {unreadCount > 0 && (
               <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
                 {unreadCount}

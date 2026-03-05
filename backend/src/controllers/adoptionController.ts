@@ -177,7 +177,25 @@ export const requestAdoption = async (
         applicantId: userId,
         status: "PENDING",
       },
+      include: {
+        applicant: { select: { id: true, name: true, email: true } },
+        pet: { select: { id: true, name: true, ownerId: true } },
+      },
     });
+
+    // Emit real-time notification to the pet owner
+    const io = getIO();
+    if (io) {
+      io.to(`user-${pet.ownerId}`).emit("adoption-request-received", {
+        adoptionRecordId: adoptionRecord.id,
+        petId: numericPetId,
+        petName: pet.name,
+        applicantId: userId,
+        applicantName: adoptionRecord.applicant.name,
+        applicantEmail: adoptionRecord.applicant.email,
+        message: `${adoptionRecord.applicant.name} has requested to adopt ${pet.name}`,
+      });
+    }
 
     res.status(201).json(adoptionRecord);
   } catch (error) {

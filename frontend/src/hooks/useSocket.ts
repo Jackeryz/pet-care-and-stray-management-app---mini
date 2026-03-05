@@ -27,6 +27,8 @@ export function useSocket() {
 
     socket.on('connect', () => {
       console.log('Socket connected:', socket.id);
+      // Join user's notification room
+      socket.emit('join-user-room', user.id);
     });
 
     socket.on('disconnect', () => {
@@ -106,5 +108,23 @@ export function useAdoptionChat(adoptionRecordId: number | null) {
     sendMessage,
     onNewMessage,
     onUserJoined,
+  };
+}
+
+export function useAdoptionRequestNotifications() {
+  const socket = useSocket();
+
+  const onAdoptionRequestReceived = useCallback(
+    (callback: (data: any) => void) => {
+      if (socket) {
+        socket.off('adoption-request-received');
+        socket.on('adoption-request-received', callback);
+      }
+    },
+    [socket]
+  );
+
+  return {
+    onAdoptionRequestReceived,
   };
 }

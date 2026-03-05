@@ -83,6 +83,12 @@ const adoptionChatConnections = new Map<number, Set<string>>();
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
+  // User joins their personal notification room
+  socket.on("join-user-room", (userId: string) => {
+    socket.join(`user-${userId}`);
+    console.log(`User ${userId} joined their notification room`);
+  });
+
   // Join adoption chat room
   socket.on("join-adoption-chat", (adoptionRecordId: number, userId: string) => {
     const roomName = `adoption-${adoptionRecordId}`;
@@ -125,7 +131,8 @@ io.on("connection", (socket) => {
           return;
         }
 
-        if (adoption.status !== "APPROVED") {
+        // Allow chat for PENDING (discussing) and APPROVED (ongoing) adoptions
+        if (!["PENDING", "APPROVED"].includes(adoption.status)) {
           socket.emit("error", { message: "Chat not available for this adoption status" });
           return;
         }
