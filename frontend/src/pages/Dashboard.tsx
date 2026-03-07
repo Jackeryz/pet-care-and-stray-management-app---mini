@@ -1,5 +1,6 @@
+import React from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useGetCallerUserProfile } from '../hooks/useQueries';
+import { useGetCallerUserProfile, useListPets } from '../hooks/useQueries';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PetsTab from '../components/tabs/PetsTab';
 import StrayReportsTab from '../components/tabs/StrayReportsTab';
@@ -20,7 +21,7 @@ export default function Dashboard() {
 
   const [showBirthdayPopup, setShowBirthdayPopup] = React.useState(false);
   const [birthdayMessage, setBirthdayMessage] = React.useState('');
-  const { data: pets } = require('../hooks/useQueries').useListPets();
+  const { data: pets } = useListPets();
 
   React.useEffect(() => {
     if (pets && pets.length > 0) {
@@ -142,4 +143,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
