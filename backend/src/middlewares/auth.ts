@@ -1,13 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-
-function getSecretKey(): string {
-  const key = process.env.JWT_SECRET;
-  if (!key) {
-    throw new Error("JWT_SECRET environment variable is not set");
-  }
-  return key;
-}
+import { getJwtSecret } from "../utils/jwtSecret";
 
 export interface AuthRequest extends Request {
   user?: { id: string; role: string; email: string };
@@ -25,7 +18,7 @@ export const authenticate = (
   }
 
   try {
-    const verified = jwt.verify(token, getSecretKey());
+    const verified = jwt.verify(token, getJwtSecret());
     req.user = verified as any;
     next();
   } catch (err) {

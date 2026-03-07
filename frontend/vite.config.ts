@@ -14,6 +14,11 @@ export default defineConfig({
   css: {
     postcss: './postcss.config.js',
   },
+  // Avoid stale pre-bundled dependency chunks that can cause
+  // "Outdated Optimize Dep" 504 errors in dev after dependency changes.
+  optimizeDeps: {
+    force: true,
+  },
   server: {
     host: '0.0.0.0',
     https: {
