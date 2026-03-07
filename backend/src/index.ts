@@ -81,12 +81,13 @@ const adoptionChatConnections = new Map<number, Set<string>>();
 
 // Socket.io event handlers
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  console.log("User connected via Socket.io:", socket.id);
 
   // User joins their personal notification room
   socket.on("join-user-room", (userId: string) => {
     socket.join(`user-${userId}`);
-    console.log(`User ${userId} joined their notification room`);
+    console.log(`✓ User ${userId} joined notification room: user-${userId}`);
+    console.log(`  Total sockets in room:`, io.sockets.adapter.rooms.get(`user-${userId}`)?.size || 0);
   });
 
   // Join adoption chat room

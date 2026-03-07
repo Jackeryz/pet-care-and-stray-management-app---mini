@@ -25,6 +25,13 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const STORAGE_KEY = 'pet-mini-auth-token';
 
+// Use sessionStorage instead of localStorage to prevent token sharing between browser tabs
+// This ensures each tab maintains its own authentication state
+function getAuthStorage() {
+  if (typeof window === 'undefined') return null;
+  return window.sessionStorage;
+}
+
 export function getApiBaseUrl() {
   const configured = (import.meta as any).env?.VITE_BACKEND_URL;
   if (configured) return configured;
@@ -41,14 +48,16 @@ export function getApiBaseUrl() {
 
 // Build a safe URL for API-hosted assets. Trims input and encodes spaces
 // ensuring images with spaces in their stored paths still load.
+// Uses relative paths for assets to avoid certificate/hostname mismatches.
 export function buildApiUrl(path: string | null | undefined) {
-  const base = getApiBaseUrl().replace(/\/$/, '');
-  if (!path) return base;
+  if (!path) return '';
   const trimmed = path.trim();
   // encodeURI preserves existing slashes but encodes spaces as %20
   const encoded = encodeURI(trimmed);
-  if (encoded.startsWith('/')) return base + encoded;
-  return base + '/' + encoded;
+  // Return relative path for /uploads and other static assets
+  // This works in dev (via Vite proxy) and in production
+  if (encoded.startsWith('/')) return encoded;
+  return '/' + encoded;
 }
 
 async function fetchWithAuth<T>(
@@ -83,8 +92,9 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return window.localStorage.getItem(STORAGE_KEY);
+    const storage = getAuthStorage();
+    if (!storage) return null;
+    return storage.getItem(STORAGE_KEY);
   });
   const [status, setStatus] = useState<AuthStatus>('initializing');
   const queryClient = useQueryClient();
@@ -108,7 +118,10 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
       } catch (error) {
         console.error('Failed to load profile, clearing token', error);
         if (!cancelled) {
-          window.localStorage.removeItem(STORAGE_KEY);
+          const storage = getAuthStorage();
+          if (storage) {
+            storage.removeItem(STORAGE_KEY);
+          }
           setToken(null);
           setUser(null);
           setStatus('idle');
@@ -127,6 +140,9 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
     async (email: string, password: string) => {
       setStatus('authenticating');
       try {
+        // Clear all cache BEFORE logging in to prevent data leakage
+        queryClient.clear();
+
         const res = await fetch(`/api/auth/login`, {
           method: 'POST',
           headers: {
@@ -142,11 +158,13 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 
         const data: { token: string; user: AuthUser } = await res.json();
 
-        window.localStorage.setItem(STORAGE_KEY, data.token);
+        const storage = getAuthStorage();
+        if (storage) {
+          storage.setItem(STORAGE_KEY, data.token);
+        }
         setToken(data.token);
         setUser(data.user);
         setStatus('idle');
-        queryClient.clear();
         toast.success('Logged in successfully');
       } catch (error: any) {
         console.error('Login error', error);
@@ -170,6 +188,9 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
     ) => {
       setStatus('authenticating');
       try {
+        // Clear all cache BEFORE registering to prevent data leakage
+        queryClient.clear();
+
         const res = await fetch(`/api/auth/register`, {
           method: 'POST',
           headers: {
@@ -192,11 +213,13 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 
         const data: { token: string; user: AuthUser } = await res.json();
 
-        window.localStorage.setItem(STORAGE_KEY, data.token);
+        const storage = getAuthStorage();
+        if (storage) {
+          storage.setItem(STORAGE_KEY, data.token);
+        }
         setToken(data.token);
         setUser(data.user);
         setStatus('idle');
-        queryClient.clear();
         toast.success('Account created successfully');
       } catch (error: any) {
         console.error('Registration error', error);
@@ -209,10 +232,14 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
   );
 
   const logout = useCallback(() => {
-    window.localStorage.removeItem(STORAGE_KEY);
+    const storage = getAuthStorage();
+    if (storage) {
+      storage.removeItem(STORAGE_KEY);
+    }
     setToken(null);
     setUser(null);
     setStatus('idle');
+    // Clear all cached queries to prevent data leakage between users
     queryClient.clear();
   }, [queryClient]);
 
@@ -238,8 +265,9 @@ export function useAuth(): AuthContextValue {
 
 // Export fetch helper so other hooks (useQueries) can use the same logic
 export function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(STORAGE_KEY);
+  const storage = getAuthStorage();
+  if (!storage) return null;
+  return storage.getItem(STORAGE_KEY);
 }
 
 export async function apiFetch<T>(

@@ -18,6 +18,30 @@ export default function Dashboard() {
   const isAdmin = user?.role === 'ADMIN';
   const isFarmer = user?.role === 'FARMER';
 
+  const [showBirthdayPopup, setShowBirthdayPopup] = React.useState(false);
+  const [birthdayMessage, setBirthdayMessage] = React.useState('');
+  const { data: pets } = require('../hooks/useQueries').useListPets();
+
+  React.useEffect(() => {
+    if (pets && pets.length > 0) {
+      const today = new Date();
+      const birthdayPets = pets.filter(
+        (pet) => pet.birthdate && (() => {
+          const birth = new Date(pet.birthdate!);
+          return today.getMonth() === birth.getMonth() && today.getDate() === birth.getDate();
+        })()
+      );
+      if (birthdayPets.length > 0) {
+        setBirthdayMessage(
+          birthdayPets.length === 1
+            ? `Happy Birthday to ${birthdayPets[0].name}!`
+            : `Happy Birthday to: ${birthdayPets.map((pet) => pet.name).join(', ')}!`
+        );
+        setShowBirthdayPopup(true);
+      }
+    }
+  }, [pets]);
+
   return (
     <div className="container py-8">
       <div className="mb-8">

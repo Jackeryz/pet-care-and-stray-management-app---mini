@@ -2,16 +2,23 @@
 import { Response } from "express";
 import { AuthRequest } from "../middlewares/auth";
 import { prisma } from "../database/db";
+import { deleteChatMessagesByAdoptionRecordIds } from "../database/sqliteSetup";
 
 // --- Pet Management ---
 
 // Create a new Pet
 export const createPet = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, breed, age } = req.body;
+    const { name, breed, age, birthdate } = req.body;
+
+    console.log("CreatePet Request:", { name, breed, age });
+    console.log("File Info:", req.file ? { filename: req.file.filename, mimetype: req.file.mimetype, size: req.file.size } : "No file");
+    console.log("User ID:", req.user!.id);
 
     // Multer puts the file info in req.file
     const photoUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+    console.log("Photo URL:", photoUrl);
 
     const pet = await prisma.pet.create({
       data: {
@@ -20,13 +27,15 @@ export const createPet = async (req: AuthRequest, res: Response) => {
         age: Number(age), // Ensure it's a number
         photoUrl,
         ownerId: req.user!.id, // Link to the logged-in user
+        birthdate: birthdate ? new Date(birthdate) : undefined,
       },
     });
 
+    console.log("Pet created successfully:", pet);
     res.status(201).json(pet);
   } catch (error) {
     console.error("Create Pet Error:", error);
-    res.status(500).json({ error: "Failed to create pet" });
+    res.status(500).json({ error: `Failed to create pet: ${error instanceof Error ? error.message : String(error)}` });
   }
 };
 
@@ -160,8 +169,30 @@ export const deletePet = async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // Delete associated medical records first
+    // Get all adoption records for this pet to clean up chat messages
+    const adoptionRecords = await prisma.adoptionRecord.findMany({
+      where: { petId: Number(petId) },
+      select: { id: true }
+    });
+    const adoptionRecordIds = adoptionRecords.map(record => record.id);
+
+    // Delete chat messages for all adoption records of this pet
+    if (adoptionRecordIds.length > 0) {
+      deleteChatMessagesByAdoptionRecordIds(adoptionRecordIds);
+    }
+
+    // Delete associated adoption records
+    await prisma.adoptionRecord.deleteMany({
+      where: { petId: Number(petId) },
+    });
+
+    // Delete associated medical records
     await prisma.medicalRecord.deleteMany({
+      where: { petId: Number(petId) },
+    });
+
+    // Delete associated scheduled vaccinations
+    await prisma.scheduledVaccination.deleteMany({
       where: { petId: Number(petId) },
     });
 

@@ -2,20 +2,46 @@ import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { getApiBaseUrl, getAuthToken, useAuth } from './useAuth';
 
-let socketInstance: Socket | null = null;
-
 export function useSocket() {
   const { user } = useAuth();
   const socketRef = useRef<Socket | null>(null);
+  const lastTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!user || socketInstance) return;
+    if (!user) {
+      // User logged out - disconnect
+      if (socketRef.current) {
+        console.log('📌 Disconnecting socket - user logged out');
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      lastTokenRef.current = null;
+      return;
+    }
 
-    const baseUrl = getApiBaseUrl();
     const token = getAuthToken();
+    
+    // If token changed (user switched), disconnect old socket and create new one
+    if (lastTokenRef.current && lastTokenRef.current !== token) {
+      console.log('🔄 Token changed - reconnecting socket for new user');
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    }
+
+    // Only create a new socket if we don't have one yet
+    if (socketRef.current) {
+      console.log('✓ Socket already connected:', socketRef.current.id);
+      return;
+    }
+
+    lastTokenRef.current = token;
 
     // Create socket connection
-    const socket = io(baseUrl, {
+    console.log('🔌 Creating new socket connection for user:', user.id);
+    const socket = io(window.location.origin, {
+      path: '/socket.io/',
       auth: {
         token,
       },
@@ -23,28 +49,33 @@ export function useSocket() {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
+      secure: true,
+      rejectUnauthorized: false,
     });
 
     socket.on('connect', () => {
-      console.log('Socket connected:', socket.id);
+      console.log('✓ Socket.io connected:', socket.id, 'User:', user.id);
       // Join user's notification room
       socket.emit('join-user-room', user.id);
+      console.log(`  Joined room: user-${user.id}`);
     });
 
     socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+      console.log('❌ Socket disconnected');
     });
 
     socket.on('error', (error) => {
-      console.error('Socket error:', error);
+      console.error('❌ Socket error:', error);
+    });
+
+    socket.on('adoption-request-received', (data) => {
+      console.log('🔔 [Socket] adoption-request-received event received:', data);
     });
 
     socketRef.current = socket;
-    socketInstance = socket;
 
     return () => {
-      // Don't disconnect on unmount - keep connection alive
-      // socket.disconnect();
+      // Cleanup is handled by the next effect cycle if user changes
     };
   }, [user]);
 
@@ -111,20 +142,46 @@ export function useAdoptionChat(adoptionRecordId: number | null) {
   };
 }
 
-export function useAdoptionRequestNotifications() {
+export function useAdoptionRequestNotifications(
+  onAdoptionRequest: (data: any) => void
+) {
   const socket = useSocket();
 
-  const onAdoptionRequestReceived = useCallback(
+  useEffect(() => {
+    if (!socket) {
+      console.log('❌ No socket available for adoption notifications');
+      return;
+    }
+
+    console.log('📡 Setting up adoption request notification listener');
+    
+    const handleAdoptionRequest = (data: any) => {
+      console.log('🔔 [Socket] Adoption request received:', data);
+      onAdoptionRequest(data);
+    };
+
+    socket.on('adoption-request-received', handleAdoptionRequest);
+
+    return () => {
+      socket.off('adoption-request-received', handleAdoptionRequest);
+    };
+  }, [socket, onAdoptionRequest]);
+}
+
+export function useStrayReportNotifications() {
+  const socket = useSocket();
+
+  const onStrayReportReceived = useCallback(
     (callback: (data: any) => void) => {
       if (socket) {
-        socket.off('adoption-request-received');
-        socket.on('adoption-request-received', callback);
+        socket.off('stray-report-notification');
+        socket.on('stray-report-notification', callback);
       }
     },
     [socket]
   );
 
   return {
-    onAdoptionRequestReceived,
+    onStrayReportReceived,
   };
 }

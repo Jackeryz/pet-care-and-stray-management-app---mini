@@ -43,9 +43,9 @@ export const sendMessage = async (
       return;
     }
 
-    // Allow chat for PENDING (discussing) and APPROVED (ongoing) adoptions
-    if (!["PENDING", "APPROVED"].includes(adoption.status)) {
-      res.status(400).json({ error: "Chat is not available for this adoption status" });
+    // Allow chat only for APPROVED adoptions
+    if (adoption.status !== "APPROVED") {
+      res.status(400).json({ error: "Chat is only available after adoption is approved" });
       return;
     }
 

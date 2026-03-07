@@ -186,7 +186,19 @@ export const requestAdoption = async (
     // Emit real-time notification to the pet owner
     const io = getIO();
     if (io) {
-      io.to(`user-${pet.ownerId}`).emit("adoption-request-received", {
+      const roomName = `user-${pet.ownerId}`;
+      const socketsInRoom = io.sockets.adapter.rooms.get(roomName)?.size || 0;
+      console.log(`🔔 Adoption request created:`, {
+        adoptionRecordId: adoptionRecord.id,
+        petId: numericPetId,
+        petName: pet.name,
+        applicantId: userId,
+        applicantName: adoptionRecord.applicant.name,
+        targetRoom: roomName,
+        socketsInRoom: socketsInRoom,
+      });
+      
+      io.to(roomName).emit("adoption-request-received", {
         adoptionRecordId: adoptionRecord.id,
         petId: numericPetId,
         petName: pet.name,

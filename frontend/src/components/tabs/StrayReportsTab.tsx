@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useListStrayReports, useReportStray, useUpdateReportStatus, useGetCallerUserProfile } from '../../hooks/useQueries';
+import { useStrayReportNotifications } from '../../hooks/useSocket';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -12,13 +13,29 @@ import { Loader2, Plus, MapPin } from 'lucide-react';
 import type { StrayReport, ReportStatus } from '../../types';
 import { getApiBaseUrl, buildApiUrl } from '../../hooks/useAuth';
 import MapPicker from '@/components/MapPicker';
+import { toast } from 'sonner';
 
 export default function StrayReportsTab() {
-  const { data: allReports, isLoading: allLoading } = useListStrayReports();
+  const { data: allReports, isLoading: allLoading, refetch } = useListStrayReports();
   const { data: userProfile } = useGetCallerUserProfile();
+  const { onStrayReportReceived } = useStrayReportNotifications();
   const [showReportForm, setShowReportForm] = useState(false);
 
   const isNGO = userProfile?.role === 'NGO';
+
+  // Listen for real-time stray report notifications (for NGOs)
+  useEffect(() => {
+    if (!isNGO) return;
+
+    onStrayReportReceived((data) => {
+      console.log('New stray report notification:', data);
+      toast.success(`New stray reported at ${data.location}: ${data.description}`, {
+        duration: 5000,
+      });
+      // Refetch reports to show new notification
+      refetch();
+    });
+  }, [isNGO, onStrayReportReceived, refetch]);
 
   if (allLoading) {
     return (
@@ -232,13 +249,10 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
     if (!photo) return;
 
-    const arrayBuffer = await photo.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-
     reportStray.mutate(
       {
         location,
-        photo: uint8Array,
+        photo,
         description,
         latitude,
         longitude,

@@ -7,6 +7,7 @@ export interface UserProfile {
   email: string;
   name: string;
   role: Role;
+  birthdate?: string | null;
 }
 
 // Pets & medical records
@@ -15,6 +16,7 @@ export interface Pet {
   name: string;
   breed: string;
   age: number;
+  birthdate?: string | null;
   // URL path served by the Node backend (e.g. /uploads/xyz.jpg)
   photoUrl: string | null;
 }
@@ -72,6 +74,10 @@ export type AdoptionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export interface AdoptionRecord {
   id: number;
   petId: number;
+  applicantId?: string;
   status: AdoptionStatus;
+  createdAt?: string;
+  pet?: Pet;
+  applicant?: UserProfile;
 }
 

@@ -114,9 +114,9 @@ export default function WelcomeScreen() {
                       </SelectContent>
                     </Select>
                   </div>
-                  {role === 'NGO' && (
+                  {(role === 'VET' || role === 'NGO') && (
                     <div className="space-y-2">
-                      <Label>Organization Location</Label>
+                      <Label>{role === 'VET' ? 'Clinic Location' : 'Organization Location'}</Label>
                       <Button
                         type="button"
                         variant="outline"

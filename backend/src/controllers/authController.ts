@@ -264,3 +264,153 @@ export const updateUsername = async (
     res.status(500).json({ error: "Failed to update username" });
   }
 };
+
+// Update location (for VETs and NGOs) with 7-day cooldown
+export const updateLocation = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const { latitude, longitude } = req.body;
+
+    if (!userId) {
+      res.status(401).json({ error: "User not authenticated" });
+      return;
+    }
+
+    // Only VETs and NGOs can update location
+    if (userRole !== "VET" && userRole !== "NGO") {
+      res.status(403).json({ error: "Only vets and NGOs can update their location" });
+      return;
+    }
+
+    if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+      res.status(400).json({ error: "Latitude and longitude must be valid numbers" });
+      return;
+    }
+
+    // Validate coordinates
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      res.status(400).json({ error: "Invalid coordinates" });
+      return;
+    }
+
+    // Get current user with lastLocationChange
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        latitude: true,
+        longitude: true,
+        lastLocationChange: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    // Check if location is the same
+    if (user.latitude === latitude && user.longitude === longitude) {
+      res.status(400).json({ error: "New location must be different from current location" });
+      return;
+    }
+
+    // Check cooldown (7 days = 604800000 milliseconds)
+    const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+    if (user.lastLocationChange) {
+      const timeSinceChange = Date.now() - new Date(user.lastLocationChange).getTime();
+      if (timeSinceChange < COOLDOWN_MS) {
+        const daysRemaining = Math.ceil((COOLDOWN_MS - timeSinceChange) / (24 * 60 * 60 * 1000));
+        res.status(429).json({ 
+          error: `Location can only be changed once every 7 days. You can change it again in ${daysRemaining} days.`,
+          daysRemaining
+        });
+        return;
+      }
+    }
+
+    // Update location
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        latitude,
+        longitude,
+        lastLocationChange: new Date(),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        latitude: true,
+        longitude: true,
+        lastLocationChange: true,
+      },
+    });
+
+    res.json({
+      message: "Location updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error updating location:", error);
+    res.status(500).json({ error: "Failed to update location" });
+  }
+};
+
+// Delete Account (irreversible)
+export const deleteAccount = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+
+    // Delete all user data in cascade order (respecting foreign keys)
+    // 1. Delete adoption records (references pets)
+    await prisma.adoptionRecord.deleteMany({
+      where: {
+        OR: [
+          { applicantId: userId }, // User's adoption requests
+          { pet: { ownerId: userId } }, // Requests for user's pets
+        ],
+      },
+    });
+
+    // 2. Delete medical records and scheduled vaccinations (references pets)
+    await prisma.medicalRecord.deleteMany({
+      where: { pet: { ownerId: userId } },
+    });
+
+    await prisma.scheduledVaccination.deleteMany({
+      where: { pet: { ownerId: userId } },
+    });
+
+    // 3. Delete pets (owned by user)
+    await prisma.pet.deleteMany({
+      where: { ownerId: userId },
+    });
+
+    // 4. Delete stray reports
+    await prisma.strayReport.deleteMany({
+      where: { reporterId: userId },
+    });
+
+    // 5. Delete orders
+    await prisma.order.deleteMany({
+      where: { userId },
+    });
+
+    // 6. Delete the user
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    res.status(200).json({
+      message: "Account deleted successfully. All associated data has been removed.",
+    });
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+};

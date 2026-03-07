@@ -3,6 +3,7 @@ import { Response } from "express";
 import { AuthRequest } from "../middlewares/auth";
 import { prisma } from "../database/db";
 import { queryNGOsWithLocation, insertNotification } from "../database/sqliteSetup";
+import { getIO } from "../index";
 
 // Haversine distance
 function toRad(value: number) {
@@ -69,6 +70,20 @@ export const reportStray = async (req: AuthRequest, res: Response) => {
           notified = true;
           notifiedNgo = { id: nearest.id, name: nearest.name, email: nearest.email };
           notifiedDistanceKm = Number(minDist.toFixed(3));
+
+          // Send real-time notification via Socket.io
+          const io = getIO();
+          if (io) {
+            io.to(`user-${nearest.id}`).emit("stray-report-notification", {
+              reportId: report.id,
+              location,
+              description,
+              photoUrl,
+              reporterId: req.user!.id,
+              distanceKm: notifiedDistanceKm,
+              message,
+            });
+          }
         }
       }
     }
