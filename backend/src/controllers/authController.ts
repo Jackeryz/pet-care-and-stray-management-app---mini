@@ -4,14 +4,7 @@ import jwt from "jsonwebtoken";
 import { AuthRequest } from "../middlewares/auth";
 import { prisma } from "../database/db";
 import { generateUniqueUsername } from "../database/sqliteSetup";
-
-function getSecretKey(): string {
-  const key = process.env.JWT_SECRET;
-  if (!key) {
-    throw new Error("JWT_SECRET environment variable is not set");
-  }
-  return key;
-}
+import { getJwtSecret } from "../utils/jwtSecret";
 
 // Register User
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -76,7 +69,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     const token = jwt.sign(
       { id: user.id, role: user.role, email: user.email },
-      getSecretKey(),
+      getJwtSecret(),
     );
 
     // Return success (excluding password)
@@ -114,7 +107,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Generate JWT Token
     const token = jwt.sign(
       { id: user.id, role: user.role, email: user.email },
-      getSecretKey(),
+      getJwtSecret(),
     );
 
     res.json({
