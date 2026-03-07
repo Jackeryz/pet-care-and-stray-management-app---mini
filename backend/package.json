@@ -12,6 +12,8 @@
     "prisma:studio": "prisma studio",
     "predev": "prisma generate && prisma db push",
     "prestart": "prisma generate && prisma db push"
+    "predev": "prisma generate && DATABASE_URL=${DATABASE_URL:-file:./dev.db} prisma db push",
+    "prestart": "prisma generate && DATABASE_URL=${DATABASE_URL:-file:./dev.db} prisma db push"
   },
   "keywords": [],
   "author": "",
