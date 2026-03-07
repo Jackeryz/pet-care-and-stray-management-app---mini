@@ -1,3 +1,4 @@
+import React from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useGetCallerUserProfile } from '../hooks/useQueries';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -142,4 +143,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
