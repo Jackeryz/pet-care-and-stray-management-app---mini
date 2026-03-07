@@ -10,8 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:studio": "prisma studio",
-    "predev": "prisma generate",
-    "prestart": "prisma generate"
+    "predev": "prisma generate && DATABASE_URL=${DATABASE_URL:-file:./dev.db} prisma db push",
+    "prestart": "prisma generate && DATABASE_URL=${DATABASE_URL:-file:./dev.db} prisma db push"
   },
   "keywords": [],
   "author": "",
