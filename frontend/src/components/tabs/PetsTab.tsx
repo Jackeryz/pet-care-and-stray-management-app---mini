@@ -78,7 +78,25 @@ export default function PetsTab() {
                 <div className="flex-1">
                   <CardTitle>{pet.name}</CardTitle>
                   <CardDescription>
-                    {pet.breed} • {pet.age} years old
+                    {pet.breed}
+                    {pet.birthdate ? (
+                      <>
+                        {' • '}
+                        {(() => {
+                          const birth = new Date(pet.birthdate);
+                          const now = new Date();
+                          let age = now.getFullYear() - birth.getFullYear();
+                          const m = now.getMonth() - birth.getMonth();
+                          if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
+                            age--;
+                          }
+                          return `${age} years old`;
+                        })()}
+                        {' • Birthdate: ' + pet.birthdate}
+                      </>
+                    ) : (
+                      <> {' • '}{pet.age} years old</>
+                    )}
                   </CardDescription>
                 </div>
                 <DeletePetButton petId={pet.id} petName={pet.name} compact={true} />
@@ -118,6 +136,7 @@ function AddPetForm({ onSuccess }: { onSuccess: () => void }) {
   const [breed, setBreed] = useState('');
   const [age, setAge] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
+  const [birthdate, setBirthdate] = useState('');
   const createPet = useCreatePet();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,6 +147,7 @@ function AddPetForm({ onSuccess }: { onSuccess: () => void }) {
         name,
         breed,
         age: parseInt(age, 10),
+        birthdate: birthdate || undefined,
         photo: photo || undefined,
       },
       {
@@ -161,6 +181,15 @@ function AddPetForm({ onSuccess }: { onSuccess: () => void }) {
             value={breed}
             onChange={(e) => setBreed(e.target.value)}
             required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="birthdate">Birthdate</Label>
+          <Input
+            id="birthdate"
+            type="date"
+            value={birthdate}
+            onChange={(e) => setBirthdate(e.target.value)}
           />
         </div>
         <div className="space-y-2">

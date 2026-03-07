@@ -1,7 +1,16 @@
 import React from 'react';
+import { useGetCallerUserProfile } from '../../hooks/useQueries';
 import UpcomingVaccinationsList from '../UpcomingVaccinationsList';
+import VetVaccinationsTab from './VetVaccinationsTab';
 
 export default function VaccinationsTab() {
+  const { data: userProfile } = useGetCallerUserProfile();
+  const isVet = userProfile?.role === 'VET';
+
+  if (isVet) {
+    return <VetVaccinationsTab />;
+  }
+
   return (
     <div className="space-y-6">
       <div>

@@ -54,6 +54,13 @@ export function ensureSqliteSchema(dbPath = path.join(process.cwd(), 'dev.db')) 
       // ignore if already exists
     }
 
+    // Add lastLocationChange column to User table if it doesn't exist
+    try {
+      db.prepare('ALTER TABLE "User" ADD COLUMN lastLocationChange DATETIME').run();
+    } catch (e) {
+      // ignore if already exists
+    }
+
     // Create blog posts table
     db.prepare(
       `CREATE TABLE IF NOT EXISTS blog_posts (
@@ -280,6 +287,21 @@ export function markVaccinationReminderSent(vaccinationId: number, dbPath = path
   try {
     const stmt = db.prepare('UPDATE ScheduledVaccination SET reminderSent = 1 WHERE id = ?');
     stmt.run(vaccinationId);
+  } finally {
+    db.close();
+  }
+}
+
+export function deleteChatMessagesByAdoptionRecordIds(adoptionRecordIds: number[], dbPath = path.join(process.cwd(), 'dev.db')) {
+  if (!adoptionRecordIds || adoptionRecordIds.length === 0) return 0;
+
+  const db = new Database(dbPath);
+  try {
+    // Delete all chat messages for the given adoption record IDs
+    const placeholders = adoptionRecordIds.map(() => '?').join(',');
+    const stmt = db.prepare(`DELETE FROM chat_messages WHERE adoptionRecordId IN (${placeholders})`);
+    const info = stmt.run(...adoptionRecordIds);
+    return info.changes;
   } finally {
     db.close();
   }

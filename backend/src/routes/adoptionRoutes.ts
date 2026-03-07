@@ -16,16 +16,17 @@ import { authenticate } from "../middlewares/auth";
 
 const router = express.Router();
 
+// === ADOPTION LISTINGS VIEW ===
+// GET /api/adoptions/available - Get all listed pets (excluding user's own)
+// NOTE: This must come BEFORE the generic GET / route to be matched correctly
+router.get("/available", authenticate, getAvailablePetsForAdoption);
+
 // === LISTING MANAGEMENT ===
 // POST /api/adoptions/:petId/list - Owner lists pet for adoption
 router.post("/:petId/list", authenticate, listPetForAdoption);
 
 // DELETE /api/adoptions/:petId/list - Owner delists pet
 router.delete("/:petId/list", authenticate, delistPetFromAdoption);
-
-// === ADOPTION LISTINGS VIEW ===
-// GET /api/adoptions/available - Get all listed pets (excluding user's own)
-router.get("/available", authenticate, getAvailablePetsForAdoption);
 
 // === ADOPTION REQUESTS ===
 // POST /api/adoptions/:petId/request - User requests adoption

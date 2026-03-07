@@ -20,12 +20,15 @@ model User {
   lastUsernameChange DateTime?
   latitude Float?
   longitude Float?
+  lastLocationChange DateTime?
 
   pets         Pet[]            @relation("OwnerPets")
   assignedPets Pet[]            @relation("VetPets")
+  assignedVaccinations ScheduledVaccination[]
   strayReports StrayReport[]
   adoptions    AdoptionRecord[]
   orders       Order[]
+    birthdate   DateTime? // Optional birthdate
 }
 
 model Pet {
@@ -43,6 +46,7 @@ model Pet {
   medicalRecord         MedicalRecord?
   adoptionRecords       AdoptionRecord[]
   scheduledVaccinations ScheduledVaccination[]
+    birthdate            DateTime? // Optional birthdate
 }
 
 model MedicalRecord {
@@ -64,6 +68,8 @@ model ScheduledVaccination {
   status        String   @default("PENDING") // "PENDING", "COMPLETED", "SKIPPED"
   reminderSent  Boolean  @default(false)
   notes         String?
+  assignedVetId String?
+  assignedVet   User?    @relation(fields: [assignedVetId], references: [id])
   createdAt     DateTime @default(now())
 }
 

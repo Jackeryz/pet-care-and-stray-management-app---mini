@@ -45,11 +45,14 @@ export function useSaveCallerUserProfile() {
 // ------------- Pets & Medical Records -------------
 
 export function useListPets() {
+  const { user } = useAuth();
+  
   return useQuery<Pet[]>({
-    queryKey: ['pets'],
+    queryKey: ['pets', user?.id], // Include user ID for isolation between accounts
     queryFn: async () => {
       return apiFetch<Pet[]>('/api/pets');
     },
+    enabled: !!user?.id, // Only fetch if user is logged in
   });
 }
 
@@ -68,7 +71,6 @@ export function useCreatePet() {
       age: number;
       photo?: File | null;
     }) => {
-      const baseUrl = getApiBaseUrl();
       const token = getAuthToken();
       const formData = new FormData();
       formData.append('name', name);
@@ -76,7 +78,7 @@ export function useCreatePet() {
       formData.append('age', String(age));
       if (photo) formData.append('photo', photo);
 
-      const res = await fetch(`${baseUrl}/api/pets`, {
+      const res = await fetch(`/api/pets`, {
         method: 'POST',
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -92,7 +94,7 @@ export function useCreatePet() {
       return (await res.json()) as Pet;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      queryClient.invalidateQueries({ queryKey: ['pets'], exact: false });
       toast.success('Pet added successfully');
     },
     onError: (error: Error) => {
@@ -111,7 +113,10 @@ export function useDeletePet() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      // Invalidate all pet and adoption-related queries for all users
+      queryClient.invalidateQueries({ queryKey: ['pets'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['availablePets'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'], exact: false });
       toast.success('Pet deleted successfully');
     },
     onError: (error: Error) => {
@@ -128,9 +133,8 @@ export function useUpdatePetPhoto() {
       const formData = new FormData();
       formData.append('photo', photo);
 
-      const baseUrl = getApiBaseUrl();
       const token = getAuthToken();
-      const res = await fetch(`${baseUrl}/api/pets/${petId}/photo`, {
+      const res = await fetch(`/api/pets/${petId}/photo`, {
         method: 'PATCH',
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -146,7 +150,8 @@ export function useUpdatePetPhoto() {
       return (await res.json()) as Pet;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      queryClient.invalidateQueries({ queryKey: ['pets'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['availablePets'], exact: false });
       toast.success('Pet photo updated successfully');
     },
     onError: (error: Error) => {
@@ -174,7 +179,7 @@ export function useAddMedicalRecord() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['medicalRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['medicalRecords'], exact: false });
       toast.success('Medical record added successfully');
     },
     onError: (error: Error) => {
@@ -220,8 +225,11 @@ export function useListStrayReports() {
 }
 
 export function useGetUserStrayReports() {
+  const { user } = useAuth();
+
   return useQuery<StrayReport[]>({
-    queryKey: ['userStrayReports'],
+    queryKey: ['userStrayReports', user?.id], // Include user ID for isolation
+    enabled: !!user?.id,
     queryFn: async () => {
       const raw = await apiFetch<any[]>('/api/strays/my-reports');
       // Map backend shape to frontend type
@@ -255,7 +263,6 @@ export function useReportStray() {
       latitude?: number | null;
       longitude?: number | null;
     }) => {
-      const baseUrl = getApiBaseUrl();
       const token = getAuthToken();
       const formData = new FormData();
       formData.append('location', location);
@@ -264,7 +271,7 @@ export function useReportStray() {
       if (latitude) formData.append('latitude', String(latitude));
       if (longitude) formData.append('longitude', String(longitude));
 
-      const res = await fetch(`${baseUrl}/api/strays`, {
+      const res = await fetch(`/api/strays`, {
         method: 'POST',
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -280,7 +287,7 @@ export function useReportStray() {
       return (await res.json()) as StrayReport;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['strayReports'] });
+      queryClient.invalidateQueries({ queryKey: ['strayReports'], exact: false });
       toast.success('Stray report submitted successfully');
     },
     onError: (error: Error) => {
@@ -300,7 +307,7 @@ export function useUpdateReportStatus() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['strayReports'] });
+      queryClient.invalidateQueries({ queryKey: ['strayReports'], exact: false });
       toast.success('Report status updated');
     },
     onError: (error: Error) => {
@@ -315,7 +322,7 @@ export function useListAdoptionRecords() {
   const { user } = useAuth();
 
   return useQuery<AdoptionRecord[]>({
-    queryKey: ['adoptionRecords'],
+    queryKey: ['adoptionRecords', user?.id], // Include user ID for isolation
     queryFn: async () => {
       const endpoint = user?.role === 'ADMIN' ? '/api/adoptions/all' : '/api/adoptions';
       const raw = await apiFetch<any[]>(endpoint);
@@ -324,7 +331,11 @@ export function useListAdoptionRecords() {
           ({
             id: r.id,
             petId: r.petId,
+            applicantId: r.applicantId,
             status: r.status,
+            createdAt: r.createdAt,
+            pet: r.pet,
+            applicant: r.applicant,
           }) as AdoptionRecord,
       );
     },
@@ -342,8 +353,8 @@ export function useCreateAdoptionRequest() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
-      queryClient.invalidateQueries({ queryKey: ['availablePets'] });
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['availablePets'], exact: false });
       toast.success('Adoption request submitted');
     },
     onError: (error: Error) => {
@@ -362,8 +373,8 @@ export function useListPetForAdoption() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pets'] });
-      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['pets'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'], exact: false });
       toast.success('Pet listed for adoption');
     },
     onError: (error: Error) => {
@@ -382,8 +393,8 @@ export function useDelistPetFromAdoption() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pets'] });
-      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['pets'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'], exact: false });
       toast.success('Pet removed from adoption listing');
     },
     onError: (error: Error) => {
@@ -396,7 +407,7 @@ export function useGetAvailablePetsForAdoption() {
   const { user } = useAuth();
 
   return useQuery<any[]>({
-    queryKey: ['availablePets'],
+    queryKey: ['availablePets', user?.id], // Include user ID for isolation
     queryFn: async () => {
       return apiFetch<any[]>('/api/adoptions/available');
     },
@@ -417,7 +428,7 @@ export function useAcceptAdoptionRequest() {
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'], exact: false });
       toast.success('Adoption request accepted - chat created');
     },
     onError: (error: Error) => {
@@ -439,7 +450,7 @@ export function useRejectAdoptionRequest() {
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'], exact: false });
       toast.success('Adoption request rejected');
     },
     onError: (error: Error) => {
@@ -459,7 +470,7 @@ export function useUpdateAdoptionStatus() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'], exact: false });
       toast.success('Adoption status updated');
     },
     onError: (error: Error) => {
@@ -698,6 +709,27 @@ export function useUpdateUsername() {
   });
 }
 
+export function useUpdateLocation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { latitude: number; longitude: number }) => {
+      return apiFetch<any>('/api/auth/location', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['callerUserProfile'] });
+      toast.success('Location updated successfully');
+    },
+    onError: (error: Error) => {
+      const message = error.message || 'Failed to update location';
+      toast.error(message);
+    },
+  });
+}
+
 // ------------- Vaccinations -------------
 
 export interface ScheduledVaccination {
@@ -708,7 +740,17 @@ export interface ScheduledVaccination {
   status: 'PENDING' | 'COMPLETED' | 'SKIPPED';
   reminderSent: boolean;
   notes?: string;
+  assignedVetId?: string;
   createdAt: string;
+}
+
+export interface AvailableVet {
+  id: string;
+  name: string;
+  email: string;
+  latitude: number;
+  longitude: number;
+  distance: number;
 }
 
 export function useGetPetVaccinations(petId: number) {
@@ -730,11 +772,20 @@ export function useGetUpcomingVaccinations() {
   });
 }
 
+export function useGetAvailableVets() {
+  return useQuery<AvailableVet[]>({
+    queryKey: ['availableVets'],
+    queryFn: async () => {
+      return apiFetch('/api/vaccinations/available-vets');
+    },
+  });
+}
+
 export function useScheduleVaccination() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { petId: number; vaccineName: string; scheduledDate: string; notes?: string }) => {
+    mutationFn: async (data: { petId: number; vaccineName: string; scheduledDate: string; assignedVetId: string; notes?: string }) => {
       return apiFetch<ScheduledVaccination>('/api/vaccinations/schedule', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -788,6 +839,73 @@ export function useDeleteVaccination() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to delete vaccination');
+    },
+  });
+}
+
+// Vet-specific vaccination functions
+export interface AssignedVaccination extends ScheduledVaccination {
+  pet?: {
+    id: number;
+    name: string;
+    breed: string;
+    owner?: {
+      id: string;
+      name: string;
+      email: string;
+      latitude?: number;
+      longitude?: number;
+    };
+  };
+}
+
+export function useGetAssignedVaccinations() {
+  return useQuery<AssignedVaccination[]>({
+    queryKey: ['assignedVaccinations'],
+    queryFn: async () => {
+      return apiFetch('/api/vaccinations/vet/assigned');
+    },
+    refetchInterval: 60000, // Refresh every minute
+  });
+}
+
+export function useUpdateVaccinationStatusAsVet() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { vaccinationId: number; status: 'PENDING' | 'COMPLETED' | 'SKIPPED' }) => {
+      return apiFetch<ScheduledVaccination>(`/api/vaccinations/vet/${data.vaccinationId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: data.status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assignedVaccinations'] });
+      toast.success('Vaccination status updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update vaccination');
+    },
+  });
+}
+
+// ------------- Account / Auth -----------------
+
+export function useDeleteAccount() {
+  return useMutation({
+    mutationFn: async () => {
+      return apiFetch<{ message: string }>(`/api/auth/account`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      toast.success('Account deleted successfully');
+      // Logout and redirect
+      localStorage.removeItem('auth_token');
+      window.location.href = '/';
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete account');
     },
   });
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Send, MessageCircle } from 'lucide-react';
 import { useGetChatMessages, useSendChatMessage, useGetCallerUserProfile } from '../hooks/useQueries';
 import { useAdoptionChat } from '../hooks/useSocket';
+import { getAuthToken } from '../hooks/useAuth';
 import { toast } from 'sonner';
 
 interface AdoptionChatModalProps {
@@ -39,7 +40,7 @@ export const AdoptionChatModal: React.FC<AdoptionChatModalProps> = ({
           `/api/chat/${adoptionRecordId}`,
           {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${getAuthToken()}`,
             },
           }
         );

@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2, Check, X } from 'lucide-react';
+import { Loader2, Trash2, Check, X, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
+import VetSelector from './VetSelector';
 
 interface VaccinationSchedulerProps {
   petId: number;
@@ -19,13 +20,16 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
   const deleteVaccination = useDeleteVaccination();
 
   const [showForm, setShowForm] = useState(false);
+  const [showVetSelector, setShowVetSelector] = useState(false);
   const [vaccineName, setVaccineName] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [selectedVetId, setSelectedVetId] = useState<string | null>(null);
+  const [selectedVetName, setSelectedVetName] = useState<string | null>(null);
 
   const handleSchedule = async () => {
-    if (!vaccineName || !scheduledDate) {
-      toast.error('Please fill in all required fields');
+    if (!vaccineName || !scheduledDate || !selectedVetId) {
+      toast.error('Please fill in all required fields including selecting a vet');
       return;
     }
 
@@ -34,6 +38,7 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
         petId,
         vaccineName,
         scheduledDate: new Date(scheduledDate).toISOString(),
+        assignedVetId: selectedVetId,
         notes: notes || undefined,
       },
       {
@@ -41,10 +46,18 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
           setVaccineName('');
           setScheduledDate('');
           setNotes('');
+          setSelectedVetId(null);
+          setSelectedVetName(null);
           setShowForm(false);
         },
       }
     );
+  };
+
+  const handleSelectVet = (vetId: string, vetName: string) => {
+    setSelectedVetId(vetId);
+    setSelectedVetName(vetName);
+    setShowVetSelector(false);
   };
 
   const handleMarkCompleted = (vaccinationId: number) => {
@@ -117,9 +130,32 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
             </div>
 
             <div className="space-y-2">
+              <label className="text-sm font-medium">Veterinary Clinic *</label>
+              <Button
+                onClick={() => setShowVetSelector(true)}
+                variant="outline"
+                className="w-full justify-start"
+              >
+                {selectedVetName ? (
+                  <>
+                    <MapPin className="h-4 w-4 mr-2" />
+                    {selectedVetName}
+                  </>
+                ) : (
+                  'Select a Vet Clinic'
+                )}
+              </Button>
+              {selectedVetName && (
+                <p className="text-xs text-muted-foreground">
+                  Selected: {selectedVetName}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <label className="text-sm font-medium">Notes (Optional)</label>
               <Input
-                placeholder="e.g., Vet name, location notes..."
+                placeholder="e.g., Any special instructions..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
@@ -127,7 +163,7 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
 
             <Button
               onClick={handleSchedule}
-              disabled={scheduleVaccination.isPending}
+              disabled={scheduleVaccination.isPending || !selectedVetId}
               className="w-full"
             >
               {scheduleVaccination.isPending ? (
@@ -208,6 +244,13 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
           <p className="text-center text-muted-foreground py-8">No vaccinations scheduled yet</p>
         )}
       </CardContent>
+
+      {/* Vet Selector Modal */}
+      <VetSelector
+        open={showVetSelector}
+        onClose={() => setShowVetSelector(false)}
+        onSelectVet={handleSelectVet}
+      />
     </Card>
   );
 }

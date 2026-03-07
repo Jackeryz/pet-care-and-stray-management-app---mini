@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   useListAdoptionRecords,
   useCreateAdoptionRequest,
@@ -23,7 +23,6 @@ export default function AdoptionTab() {
   const { data: availablePets, isLoading: petsLoading } = useGetAvailablePetsForAdoption();
   const { data: currentUser } = useGetCallerUserProfile();
   const { data: unreadData } = useGetUnreadChatCount();
-  const { onAdoptionRequestReceived } = useAdoptionRequestNotifications();
   const createRequest = useCreateAdoptionRequest();
   const acceptRequest = useAcceptAdoptionRequest();
   const rejectRequest = useRejectAdoptionRequest();
@@ -34,18 +33,31 @@ export default function AdoptionTab() {
 
   const isLoading = requestsLoading || petsLoading;
 
-  // Listen for real-time adoption request notifications
-  useEffect(() => {
-    onAdoptionRequestReceived((data) => {
-      console.log('New adoption request received:', data);
-      toast.success(`${data.applicantName} requested to adopt ${data.petName}!`, {
-        duration: 5000,
-      });
-      setNewRequestNotification(data);
-      // Refetch adoption records to show new request
-      refetch();
+  // Handle adoption request notifications
+  const handleAdoptionRequest = useCallback((data: any) => {
+    console.log('🔔 [Frontend] Adoption request received:', data);
+    toast.success(`${data.applicantName} requested to adopt ${data.petName}!`, {
+      duration: 5000,
     });
-  }, [onAdoptionRequestReceived, refetch]);
+    setNewRequestNotification(data);
+    // Refetch adoption records to show new request
+    refetch();
+  }, [refetch]);
+
+  // Listen for real-time adoption request notifications
+  useAdoptionRequestNotifications(handleAdoptionRequest);
+
+  const handleRequestAdoption = (petId: number, petName: string) => {
+    console.log(`📤 [Frontend] Requesting adoption for pet ${petId} (${petName})`);
+    createRequest.mutate(petId, {
+      onSuccess: () => {
+        console.log(`✓ [Frontend] Adoption request created successfully for pet ${petId}`);
+      },
+      onError: (error) => {
+        console.error(`✗ [Frontend] Adoption request failed for pet ${petId}:`, error);
+      },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -66,42 +78,46 @@ export default function AdoptionTab() {
   };
 
   // Separate inbound requests (for my pets) from outbound (my requests)
+  // Show both PENDING and APPROVED requests so users can chat after accepting
   const inboundRequests = adoptionRecords?.filter(
-    (r) => r.pet?.ownerId === currentUser?.id && r.status === 'PENDING',
+    (r) => r.pet?.ownerId === currentUser?.id && ['PENDING', 'APPROVED'].includes(r.status),
   ) || [];
   
   const myRequests = adoptionRecords?.filter(
     (r) => r.applicantId === currentUser?.id,
   ) || [];
 
+  // Filter out user's own pets from available pets (safety check)
+  const filteredAvailablePets = availablePets?.filter(
+    (pet) => pet.ownerId !== currentUser?.id
+  ) || [];
+
   return (
     <div className="space-y-8">
       {/* Inbound Adoption Requests (for my pets) */}
-      {(currentUser?.role === 'PET_OWNER' || currentUser?.role === 'ADMIN') && (
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-2xl font-bold">Adoption Requests for My Pets</h3>
-            <p className="text-muted-foreground">People interested in adopting your pets</p>
-          </div>
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-2xl font-bold">Adoption Requests for My Pets</h3>
+          <p className="text-muted-foreground">People interested in adopting your pets</p>
+        </div>
 
-          {inboundRequests.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {inboundRequests.map((record) => {
-                const pet = adoptionRecords?.find((r) => r.petId === record.petId)?.pet;
-                return (
-                  <InboundRequestCard
-                    key={record.id}
-                    record={record}
-                    pet={pet}
-                    currentUser={currentUser}
-                    onAccept={() => acceptRequest.mutate(record.id)}
-                    onReject={() => rejectRequest.mutate(record.id)}
-                    isAccepting={acceptRequest.isPending}
-                    isRejecting={rejectRequest.isPending}
-                    onChatClick={() => handleOpenChat(record)}
-                  />
-                );
-              })}
+        {inboundRequests.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {inboundRequests.map((record) => {
+            return (
+              <InboundRequestCard
+                key={record.id}
+                record={record}
+                pet={record.pet}
+                currentUser={currentUser}
+                onAccept={() => acceptRequest.mutate(record.id)}
+                onReject={() => rejectRequest.mutate(record.id)}
+                isAccepting={acceptRequest.isPending}
+                isRejecting={rejectRequest.isPending}
+                onChatClick={() => handleOpenChat(record)}
+              />
+            );
+          })}
             </div>
           ) : (
             <Card>
@@ -111,7 +127,6 @@ export default function AdoptionTab() {
             </Card>
           )}
         </div>
-      )}
 
       {/* My Adoption Requests */}
       <div className="space-y-4">
@@ -123,13 +138,12 @@ export default function AdoptionTab() {
         {myRequests.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {myRequests.map((record) => {
-              const pet = adoptionRecords?.find((r) => r.id === record.id)?.pet;
               const unreadCount = unreadData?.adoptionUnreadCounts?.[record.id] || 0;
               return (
                 <MyRequestCard
                   key={record.id}
                   record={record}
-                  pet={pet}
+                  pet={record.pet}
                   currentUser={currentUser}
                   unreadCount={unreadCount}
                   onChatClick={() => handleOpenChat(record)}
@@ -153,9 +167,9 @@ export default function AdoptionTab() {
           <p className="text-muted-foreground">Give a loving home to these pets</p>
         </div>
 
-        {availablePets && availablePets.length > 0 ? (
+        {filteredAvailablePets && filteredAvailablePets.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {availablePets.map((pet) => (
+            {filteredAvailablePets.map((pet) => (
               <Card key={pet.id}>
                 {pet.photoUrl && (
                   <div className="aspect-video w-full overflow-hidden bg-muted">
@@ -181,7 +195,7 @@ export default function AdoptionTab() {
                 <CardContent>
                   <Button
                     className="w-full"
-                    onClick={() => createRequest.mutate(pet.id)}
+                    onClick={() => handleRequestAdoption(pet.id, pet.name)}
                     disabled={createRequest.isPending}
                   >
                     {createRequest.isPending ? (
@@ -268,7 +282,9 @@ function InboundRequestCard({
             <CardTitle>{pet?.name || `Pet #${record.petId}`}</CardTitle>
             <CardDescription>Request #{record.id}</CardDescription>
           </div>
-          <Badge variant="secondary">Pending</Badge>
+          <Badge variant={record.status === 'APPROVED' ? 'default' : 'secondary'}>
+            {record.status === 'PENDING' ? 'Pending' : record.status}
+          </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -286,54 +302,59 @@ function InboundRequestCard({
           </div>
         )}
 
-        {/* Chat Button */}
-        <Button
-          variant="secondary"
-          className="w-full"
-          onClick={onChatClick}
-        >
-          <MessageCircle className="mr-2 h-4 w-4" />
-          Chat with Applicant
-        </Button>
+        {/* Chat Button - Only show when APPROVED */}
+        {record.status === 'APPROVED' && (
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={onChatClick}
+          >
+            <MessageCircle className="mr-2 h-4 w-4" />
+            Chat with Applicant
+          </Button>
+        )}
 
-        <div className="flex gap-2 pt-2">
-          <Button
-            variant="default"
-            className="flex-1"
-            onClick={onAccept}
-            disabled={isAccepting || isRejecting}
-          >
-            {isAccepting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Accepting
-              </>
-            ) : (
-              <>
-                <Check className="mr-2 h-4 w-4" />
-                Accept
-              </>
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={onReject}
-            disabled={isAccepting || isRejecting}
-          >
-            {isRejecting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Rejecting
-              </>
-            ) : (
-              <>
-                <X className="mr-2 h-4 w-4" />
-                Reject
-              </>
-            )}
-          </Button>
-        </div>
+        {/* Accept/Reject Buttons - Only show when PENDING */}
+        {record.status === 'PENDING' && (
+          <div className="flex gap-2 pt-2">
+            <Button
+              variant="default"
+              className="flex-1"
+              onClick={onAccept}
+              disabled={isAccepting || isRejecting}
+            >
+              {isAccepting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Accepting
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Accept
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={onReject}
+              disabled={isAccepting || isRejecting}
+            >
+              {isRejecting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Rejecting
+                </>
+              ) : (
+                <>
+                  <X className="mr-2 h-4 w-4" />
+                  Reject
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -398,8 +419,8 @@ function MyRequestCard({
           </div>
         )}
 
-        {/* Chat Button - Show for PENDING (discussing) and APPROVED (ongoing) adoptions */}
-        {['PENDING', 'APPROVED'].includes(record.status) && (
+        {/* Chat Button - Only show when APPROVED */}
+        {record.status === 'APPROVED' && (
           <Button
             variant="outline"
             className="w-full mt-2"
