@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useListPets, useCreatePet, useDeletePet, useGetMedicalRecord, useAddMedicalRecord, useUpdatePetPhoto, useListPetForAdoption, useDelistPetFromAdoption } from '../../hooks/useQueries';
+﻿import { useState } from 'react';
+import { useListPets, useCreatePet, useDeletePet, useGetMedicalRecord, useAddMedicalRecord, useUpdatePetPhoto, useUpdatePetBirthdate, useListPetForAdoption, useDelistPetFromAdoption } from '../../hooks/useQueries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -11,6 +11,63 @@ import { Loader2, Plus, Syringe, FileText, Trash2, Camera, Heart } from 'lucide-
 import type { Pet } from '../../types';
 import { getApiBaseUrl, buildApiUrl } from '../../hooks/useAuth';
 import VaccinationScheduler from '../VaccinationScheduler';
+import { toast } from 'sonner';
+
+function getPetAgeFromBirthdate(birthdate?: string | null): number | null {
+  if (!birthdate) return null;
+  const normalized = birthdate
+    .replace(/\s+/g, '')
+    .replace(/[/.]/g, '-')
+    .replace(/[\u2013\u2014]/g, '-');
+  const ddmmyyyy = /^(\d{1,2})-(\d{1,2})-(\d{4})$/;
+  let birth: Date;
+  const match = normalized.match(ddmmyyyy);
+  if (match) {
+    const day = match[1].padStart(2, '0');
+    const month = match[2].padStart(2, '0');
+    birth = new Date(`${match[3]}-${month}-${day}T00:00:00.000Z`);
+  } else {
+    birth = new Date(normalized);
+  }
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  const monthDiff = now.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) {
+    years--;
+  }
+  return Math.max(0, years);
+}
+
+function getPetAgeLabel(pet: Pet): string {
+  const fromBirthdate = getPetAgeFromBirthdate(pet.birthdate);
+  if (fromBirthdate != null) return `${fromBirthdate} years old`;
+  if (typeof pet.age === 'number' && pet.age >= 0) return `${pet.age} years old`;
+  return 'Age not set';
+}
+
+function formatBirthdateForDisplay(birthdate?: string | null): string {
+  if (!birthdate) return '';
+  const isoDateOnly = birthdate.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+  if (isoDateOnly) {
+    return `${isoDateOnly[3]}-${isoDateOnly[2]}-${isoDateOnly[1]}`;
+  }
+  const normalized = birthdate
+    .replace(/\s+/g, '')
+    .replace(/[/.]/g, '-')
+    .replace(/[\u2013\u2014]/g, '-');
+  const ddmmyyyy = /^(\d{1,2})-(\d{1,2})-(\d{4})$/;
+  const direct = normalized.match(ddmmyyyy);
+  if (direct) {
+    return `${direct[1].padStart(2, '0')}-${direct[2].padStart(2, '0')}-${direct[3]}`;
+  }
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return birthdate;
+  const dd = String(parsed.getDate()).padStart(2, '0');
+  const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+  const yyyy = parsed.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
 
 export default function PetsTab() {
   const { data: pets, isLoading } = useListPets();
@@ -81,23 +138,14 @@ export default function PetsTab() {
                     {pet.breed}
                     {pet.birthdate ? (
                       <>
-                        {' • '}
-                        {(() => {
-                          const birth = new Date(pet.birthdate);
-                          const now = new Date();
-                          let age = now.getFullYear() - birth.getFullYear();
-                          const m = now.getMonth() - birth.getMonth();
-                          if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
-                            age--;
-                          }
-                          return `${age} years old`;
-                        })()}
-                        {' • Birthdate: ' + pet.birthdate}
+                        {' - '}
+                        {getPetAgeLabel(pet)}
                       </>
                     ) : (
-                      <> {' • '}{pet.age} years old</>
+                      <> {' - '}{getPetAgeLabel(pet)}</>
                     )}
                   </CardDescription>
+                  <BirthdateEditor pet={pet} />
                 </div>
                 <DeletePetButton petId={pet.id} petName={pet.name} compact={true} />
               </CardHeader>
@@ -134,20 +182,26 @@ export default function PetsTab() {
 function AddPetForm({ onSuccess }: { onSuccess: () => void }) {
   const [name, setName] = useState('');
   const [breed, setBreed] = useState('');
-  const [age, setAge] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [birthdate, setBirthdate] = useState('');
   const createPet = useCreatePet();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const formattedBirthdate = birthdate
+      .replace(/\s+/g, '')
+      .replace(/[/.]/g, '-')
+      .replace(/[–—]/g, '-');
+    if (formattedBirthdate && !/^\d{1,2}-\d{1,2}-\d{4}$/.test(formattedBirthdate)) {
+      toast.error('Birthdate format should be DD-MM-YYYY');
+      return;
+    }
 
     createPet.mutate(
       {
         name,
         breed,
-        age: parseInt(age, 10),
-        birthdate: birthdate || undefined,
+        birthdate: formattedBirthdate || undefined,
         photo: photo || undefined,
       },
       {
@@ -187,21 +241,10 @@ function AddPetForm({ onSuccess }: { onSuccess: () => void }) {
           <Label htmlFor="birthdate">Birthdate</Label>
           <Input
             id="birthdate"
-            type="date"
+            type="text"
+            placeholder="DD-MM-YYYY (optional)"
             value={birthdate}
             onChange={(e) => setBirthdate(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="age">Age (years)</Label>
-          <Input
-            id="age"
-            type="number"
-            min="0"
-            placeholder="e.g., 3"
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            required
           />
         </div>
         <div className="space-y-2">
@@ -224,6 +267,69 @@ function AddPetForm({ onSuccess }: { onSuccess: () => void }) {
           )}
         </Button>
       </form>
+    </>
+  );
+}
+
+function BirthdateEditor({ pet }: { pet: Pet }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  const updateBirthdate = useUpdatePetBirthdate();
+
+  const hasBirthdate = !!pet.birthdate;
+
+  return (
+    <>
+      <button
+        type="button"
+        className="text-xs text-muted-foreground mt-1 underline underline-offset-2"
+        onClick={() => {
+          setValue(hasBirthdate ? formatBirthdateForDisplay(pet.birthdate) : '');
+          setOpen(true);
+        }}
+      >
+        Birthdate: {hasBirthdate ? formatBirthdateForDisplay(pet.birthdate) : 'Not set'}
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Birthdate - {pet.name}</DialogTitle>
+            <DialogDescription>Enter birthdate in DD-MM-YYYY format</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="DD-MM-YYYY"
+            />
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                disabled={updateBirthdate.isPending}
+                onClick={() => {
+                  const formatted = value
+                    .replace(/\s+/g, '')
+                    .replace(/[/.]/g, '-')
+                    .replace(/[\u2013\u2014]/g, '-');
+                  if (!/^\d{1,2}-\d{1,2}-\d{4}$/.test(formatted)) {
+                    toast.error('Birthdate format should be DD-MM-YYYY');
+                    return;
+                  }
+                  updateBirthdate.mutate(
+                    { petId: pet.id, birthdate: formatted },
+                    { onSuccess: () => setOpen(false) },
+                  );
+                }}
+              >
+                {updateBirthdate.isPending ? 'Saving...' : 'Save'}
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -633,4 +739,12 @@ function AdoptionListingButton({ petId, petName, isListed }: { petId: number; pe
     </Button>
   );
 }
+
+
+
+
+
+
+
+
 

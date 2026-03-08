@@ -16,7 +16,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 export default function SettingsTab() {
   const { data: userData } = useGetCallerUserProfile();
@@ -64,18 +63,6 @@ export default function SettingsTab() {
             <div className="space-y-2 p-3 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">Full Name</p>
               <p className="font-semibold">{userData?.name}</p>
-              <div className="space-y-2 mt-2">
-                <Label htmlFor="user-birthdate">Birthdate</Label>
-                <Input
-                  id="user-birthdate"
-                  type="date"
-                  value={userData?.birthdate || ''}
-                  onChange={(e) => {/* TODO: handle birthdate update */}}
-                />
-              </div>
-              {userData?.birthdate && (
-                <p className="text-sm text-muted-foreground mt-2">Birthdate: {userData.birthdate}</p>
-              )}
             </div>
 
             <div className="space-y-2 p-3 bg-muted rounded-lg">

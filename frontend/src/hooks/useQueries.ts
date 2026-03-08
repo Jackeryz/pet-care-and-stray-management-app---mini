@@ -10,6 +10,8 @@ import type {
   Product,
   Order,
   ReportStatus,
+  NgoReportStatus,
+  VetReportStatus,
   AdoptionStatus,
   OrderStatus,
 } from '../types';
@@ -68,14 +70,16 @@ export function useCreatePet() {
     }: {
       name: string;
       breed: string;
-      age: number;
+      age?: number;
+      birthdate?: string;
       photo?: File | null;
     }) => {
       const token = getAuthToken();
       const formData = new FormData();
       formData.append('name', name);
       formData.append('breed', breed);
-      formData.append('age', String(age));
+      if (typeof age === 'number') formData.append('age', String(age));
+      if (birthdate) formData.append('birthdate', birthdate);
       if (photo) formData.append('photo', photo);
 
       const res = await fetch(`/api/pets`, {
@@ -217,6 +221,10 @@ export function useListStrayReports() {
         description: r.description,
         photoUrl: r.photoUrl ?? null,
         status: r.status as ReportStatus,
+        ngoStatus: (r.ngoStatus ?? 'PENDING') as NgoReportStatus,
+        vetStatus: (r.vetStatus ?? 'PENDING') as VetReportStatus,
+        sharedVetBaseLocation: r.sharedVetBaseLocation ?? null,
+        sharedNgoBaseLocation: r.sharedNgoBaseLocation ?? null,
         createdAt: r.createdAt,
         reporterName: r.reporter?.name,
       })) as StrayReport[];
@@ -239,6 +247,10 @@ export function useGetUserStrayReports() {
         description: r.description,
         photoUrl: r.photoUrl ?? null,
         status: r.status as ReportStatus,
+        ngoStatus: (r.ngoStatus ?? 'PENDING') as NgoReportStatus,
+        vetStatus: (r.vetStatus ?? 'PENDING') as VetReportStatus,
+        sharedVetBaseLocation: r.sharedVetBaseLocation ?? null,
+        sharedNgoBaseLocation: r.sharedNgoBaseLocation ?? null,
         createdAt: r.createdAt,
         reporterName: r.reporter?.name,
       })) as StrayReport[];
@@ -300,7 +312,7 @@ export function useUpdateReportStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: ReportStatus }) => {
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
       return apiFetch<StrayReport>(`/api/strays/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
@@ -455,6 +467,52 @@ export function useRejectAdoptionRequest() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to reject adoption request');
+    },
+  });
+}
+
+export function useUpdatePetBirthdate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ petId, birthdate }: { petId: number; birthdate: string }) => {
+      return apiFetch<Pet>(`/api/pets/${petId}/birthdate`, {
+        method: 'PATCH',
+        body: JSON.stringify({ birthdate }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pets'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['availablePets'], exact: false });
+      toast.success('Birthdate updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update birthdate');
+    },
+  });
+}
+
+export function useTransferAdoptedPet() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (requestId: number) => {
+      return apiFetch<{ success: boolean; adoptionRecord: AdoptionRecord; pet: any }>(
+        `/api/adoptions/${requestId}/transfer`,
+        {
+          method: 'PATCH',
+        },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adoptionRecords'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['availablePets'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['pets'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['medicalRecords'], exact: false });
+      toast.success('Pet transferred to adopter successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to transfer pet');
     },
   });
 }
@@ -772,12 +830,25 @@ export function useGetUpcomingVaccinations() {
   });
 }
 
-export function useGetAvailableVets() {
+export function useGetAvailableVets(
+  location?: { latitude?: number | null; longitude?: number | null },
+  enabled: boolean = true
+) {
+  const hasLiveLocation =
+    typeof location?.latitude === 'number' &&
+    Number.isFinite(location.latitude) &&
+    typeof location?.longitude === 'number' &&
+    Number.isFinite(location.longitude);
+
   return useQuery<AvailableVet[]>({
-    queryKey: ['availableVets'],
+    queryKey: ['availableVets', location?.latitude ?? null, location?.longitude ?? null],
     queryFn: async () => {
-      return apiFetch('/api/vaccinations/available-vets');
+      const query = hasLiveLocation
+        ? `?latitude=${encodeURIComponent(String(location!.latitude))}&longitude=${encodeURIComponent(String(location!.longitude))}`
+        : '';
+      return apiFetch(`/api/vaccinations/available-vets${query}`);
     },
+    enabled,
   });
 }
 
@@ -785,7 +856,15 @@ export function useScheduleVaccination() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { petId: number; vaccineName: string; scheduledDate: string; assignedVetId: string; notes?: string }) => {
+    mutationFn: async (data: {
+      petId: number;
+      vaccineName: string;
+      scheduledDate: string;
+      assignedVetId: string;
+      notes?: string;
+      latitude?: number;
+      longitude?: number;
+    }) => {
       return apiFetch<ScheduledVaccination>('/api/vaccinations/schedule', {
         method: 'POST',
         body: JSON.stringify(data),

@@ -7,6 +7,7 @@ import {
   useGetCallerUserProfile,
   useAcceptAdoptionRequest,
   useRejectAdoptionRequest,
+  useTransferAdoptedPet,
 } from '../../hooks/useQueries';
 import { useAdoptionRequestNotifications } from '../../hooks/useSocket';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +19,27 @@ import { getApiBaseUrl, buildApiUrl } from '../../hooks/useAuth';
 import { AdoptionChatModal } from '../AdoptionChatModal';
 import { toast } from 'sonner';
 
+function getPetAgeLabel(pet?: Pet): string {
+  if (!pet) return 'Age not set';
+  if (pet.birthdate) {
+    const normalized = pet.birthdate.replace(/\s+/g, '');
+    const ddmmyyyy = /^(\d{1,2})-(\d{1,2})-(\d{4})$/;
+    const m = normalized.match(ddmmyyyy);
+    const birth = m
+      ? new Date(`${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}T00:00:00.000Z`)
+      : new Date(normalized);
+    if (!Number.isNaN(birth.getTime())) {
+      const now = new Date();
+      let years = now.getFullYear() - birth.getFullYear();
+      const monthDiff = now.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) years--;
+      return `${Math.max(0, years)} years old`;
+    }
+  }
+  if (typeof pet.age === 'number' && pet.age > 0) return `${pet.age} years old`;
+  return 'Age not set';
+}
+
 export default function AdoptionTab() {
   const { data: adoptionRecords, isLoading: requestsLoading, refetch } = useListAdoptionRecords();
   const { data: availablePets, isLoading: petsLoading } = useGetAvailablePetsForAdoption();
@@ -26,6 +48,7 @@ export default function AdoptionTab() {
   const createRequest = useCreateAdoptionRequest();
   const acceptRequest = useAcceptAdoptionRequest();
   const rejectRequest = useRejectAdoptionRequest();
+  const transferPet = useTransferAdoptedPet();
 
   const [selectedAdoption, setSelectedAdoption] = useState<any | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -80,17 +103,36 @@ export default function AdoptionTab() {
   // Separate inbound requests (for my pets) from outbound (my requests)
   // Show both PENDING and APPROVED requests so users can chat after accepting
   const inboundRequests = adoptionRecords?.filter(
-    (r) => r.pet?.ownerId === currentUser?.id && ['PENDING', 'APPROVED'].includes(r.status),
+    (r) =>
+      r.pet?.ownerId === currentUser?.id &&
+      r.applicantId !== currentUser?.id &&
+      ['PENDING', 'APPROVED'].includes(r.status),
   ) || [];
   
   const myRequests = adoptionRecords?.filter(
-    (r) => r.applicantId === currentUser?.id,
+    (r) =>
+      r.applicantId === currentUser?.id &&
+      r.pet?.ownerId !== currentUser?.id &&
+      ['PENDING', 'APPROVED'].includes(r.status),
   ) || [];
 
   // Filter out user's own pets from available pets (safety check)
   const filteredAvailablePets = availablePets?.filter(
     (pet) => pet.ownerId !== currentUser?.id
   ) || [];
+
+  const parseMedicalArray = (value: unknown): string[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map((item) => String(item));
+    if (typeof value !== 'string') return [];
+
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map((item) => String(item)) : [];
+    } catch {
+      return [];
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -112,8 +154,10 @@ export default function AdoptionTab() {
                 currentUser={currentUser}
                 onAccept={() => acceptRequest.mutate(record.id)}
                 onReject={() => rejectRequest.mutate(record.id)}
+                onTransfer={() => transferPet.mutate(record.id)}
                 isAccepting={acceptRequest.isPending}
                 isRejecting={rejectRequest.isPending}
+                isTransferring={transferPet.isPending}
                 onChatClick={() => handleOpenChat(record)}
               />
             );
@@ -183,7 +227,7 @@ export default function AdoptionTab() {
                 <CardHeader>
                   <CardTitle>{pet.name}</CardTitle>
                   <CardDescription>
-                    {pet.breed} • {pet.age} years old
+                    {pet.breed} • {getPetAgeLabel(pet)}
                   </CardDescription>
                   {pet.owner && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
@@ -193,6 +237,29 @@ export default function AdoptionTab() {
                   )}
                 </CardHeader>
                 <CardContent>
+                  {(() => {
+                    const vaccinations = parseMedicalArray(pet?.medicalRecord?.vaccinations);
+                    const treatments = parseMedicalArray(pet?.medicalRecord?.treatments);
+                    const hasMedical = vaccinations.length > 0 || treatments.length > 0;
+
+                    return (
+                      <div className="mb-4 rounded-md border p-3">
+                        <p className="text-sm font-semibold">Medical Records</p>
+                        {hasMedical ? (
+                          <div className="mt-2 space-y-2 text-xs text-muted-foreground">
+                            <p>
+                              Vaccinations: {vaccinations.length > 0 ? vaccinations.join(', ') : 'None listed'}
+                            </p>
+                            <p>
+                              Treatments: {treatments.length > 0 ? treatments.join(', ') : 'None listed'}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs text-muted-foreground">No medical records available</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <Button
                     className="w-full"
                     onClick={() => handleRequestAdoption(pet.id, pet.name)}
@@ -252,8 +319,10 @@ function InboundRequestCard({
   currentUser,
   onAccept,
   onReject,
+  onTransfer,
   isAccepting,
   isRejecting,
+  isTransferring,
   onChatClick,
 }: {
   record: any;
@@ -261,8 +330,10 @@ function InboundRequestCard({
   currentUser?: any;
   onAccept: () => void;
   onReject: () => void;
+  onTransfer: () => void;
   isAccepting: boolean;
   isRejecting: boolean;
+  isTransferring: boolean;
   onChatClick?: () => void;
 }) {
   return (
@@ -290,7 +361,7 @@ function InboundRequestCard({
       <CardContent className="space-y-4">
         {pet && (
           <p className="text-sm text-muted-foreground">
-            {pet.breed} • {pet.age} years old
+            {pet.breed} • {getPetAgeLabel(pet)}
           </p>
         )}
 
@@ -304,14 +375,30 @@ function InboundRequestCard({
 
         {/* Chat Button - Only show when APPROVED */}
         {record.status === 'APPROVED' && (
-          <Button
-            variant="secondary"
-            className="w-full"
-            onClick={onChatClick}
-          >
-            <MessageCircle className="mr-2 h-4 w-4" />
-            Chat with Applicant
-          </Button>
+          <div className="space-y-2">
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={onChatClick}
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Chat with Applicant
+            </Button>
+            <Button
+              className="w-full"
+              onClick={onTransfer}
+              disabled={isTransferring}
+            >
+              {isTransferring ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Transferring...
+                </>
+              ) : (
+                'Complete Adoption Transfer'
+              )}
+            </Button>
+          </div>
         )}
 
         {/* Accept/Reject Buttons - Only show when PENDING */}
@@ -407,7 +494,7 @@ function MyRequestCard({
       <CardContent className="space-y-4">
         {pet && (
           <p className="text-sm text-muted-foreground">
-            {pet.breed} • {pet.age} years old
+            {pet.breed} • {getPetAgeLabel(pet)}
           </p>
         )}
 
@@ -439,4 +526,5 @@ function MyRequestCard({
     </Card>
   );
 }
+
 

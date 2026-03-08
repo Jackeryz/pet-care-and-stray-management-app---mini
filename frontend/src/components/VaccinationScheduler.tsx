@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Trash2, Check, X, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import VetSelector from './VetSelector';
+import MapPicker from '@/components/MapPicker';
 
 interface VaccinationSchedulerProps {
   petId: number;
@@ -26,10 +27,25 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
   const [notes, setNotes] = useState('');
   const [selectedVetId, setSelectedVetId] = useState<string | null>(null);
   const [selectedVetName, setSelectedVetName] = useState<string | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mapPickerMode, setMapPickerMode] = useState<'auto' | 'manual'>('manual');
+
+  const handleUseMyLocation = () => {
+    setIsLocating(true);
+    setMapPickerMode('auto');
+    setShowMapPicker(true);
+  };
 
   const handleSchedule = async () => {
     if (!vaccineName || !scheduledDate || !selectedVetId) {
       toast.error('Please fill in all required fields including selecting a vet');
+      return;
+    }
+
+    if (!currentLocation) {
+      toast.error('Please set your current location before scheduling');
       return;
     }
 
@@ -40,6 +56,8 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
         scheduledDate: new Date(scheduledDate).toISOString(),
         assignedVetId: selectedVetId,
         notes: notes || undefined,
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
       },
       {
         onSuccess: () => {
@@ -124,6 +142,7 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
               <label className="text-sm font-medium">Scheduled Date</label>
               <Input
                 type="datetime-local"
+                className="font-sans"
                 value={scheduledDate}
                 onChange={(e) => setScheduledDate(e.target.value)}
               />
@@ -131,8 +150,47 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Veterinary Clinic *</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button
+                  onClick={handleUseMyLocation}
+                  variant="outline"
+                >
+                  {isLocating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Getting location...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Use My Location
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setMapPickerMode('manual');
+                    setShowMapPicker(true);
+                  }}
+                  variant="outline"
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Pick on Map
+                </Button>
+              </div>
+              {currentLocation && (
+                <p className="text-xs text-muted-foreground">
+                  Current location: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+                </p>
+              )}
               <Button
-                onClick={() => setShowVetSelector(true)}
+                onClick={() => {
+                  if (!currentLocation) {
+                    toast.error('Set current location first using "Use My Location" or "Pick on Map"');
+                    return;
+                  }
+                  setShowVetSelector(true);
+                }}
                 variant="outline"
                 className="w-full justify-start"
               >
@@ -250,6 +308,22 @@ export default function VaccinationScheduler({ petId, petName }: VaccinationSche
         open={showVetSelector}
         onClose={() => setShowVetSelector(false)}
         onSelectVet={handleSelectVet}
+        currentLocation={currentLocation}
+      />
+      <MapPicker
+        open={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        headlessLocate={mapPickerMode === 'auto'}
+        onLocateError={() => {
+          setIsLocating(false);
+        }}
+        initialLat={currentLocation?.latitude}
+        initialLng={currentLocation?.longitude}
+        onPick={(lat, lng) => {
+          setCurrentLocation({ latitude: lat, longitude: lng });
+          setIsLocating(false);
+          setShowMapPicker(false);
+        }}
       />
     </Card>
   );
