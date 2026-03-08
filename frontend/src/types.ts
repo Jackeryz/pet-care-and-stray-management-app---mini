@@ -31,6 +31,8 @@ export interface MedicalRecord {
 
 // Stray reports
 export type ReportStatus = 'REPORTED' | 'VERIFIED' | 'RESCUED' | 'RESOLVED';
+export type NgoReportStatus = 'PENDING' | 'RESCUED' | 'HOUSED' | 'RESOLVED';
+export type VetReportStatus = 'PENDING' | 'FIRST_AID_PROVIDED' | 'HOUSED_AT_VET' | 'RESOLVED';
 
 export interface StrayReport {
   id: number;
@@ -38,6 +40,20 @@ export interface StrayReport {
   description: string;
   photoUrl: string | null;
   status: ReportStatus;
+  ngoStatus?: NgoReportStatus;
+  vetStatus?: VetReportStatus;
+  sharedVetBaseLocation?: {
+    responderId: string;
+    responderName?: string | null;
+    latitude: number;
+    longitude: number;
+  } | null;
+  sharedNgoBaseLocation?: {
+    responderId: string;
+    responderName?: string | null;
+    latitude: number;
+    longitude: number;
+  } | null;
   createdAt: string;
   reporterName?: string;
 }
@@ -69,7 +85,7 @@ export interface Order {
 }
 
 // Adoptions
-export type AdoptionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type AdoptionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 
 export interface AdoptionRecord {
   id: number;

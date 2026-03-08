@@ -28,12 +28,16 @@ export default function MapPicker({
   open,
   onClose,
   onPick,
+  headlessLocate = false,
+  onLocateError,
 }: {
   initialLat?: number;
   initialLng?: number;
   open: boolean;
   onClose: () => void;
   onPick: (lat: number, lng: number) => void;
+  headlessLocate?: boolean;
+  onLocateError?: () => void;
 }) {
   const [pos, setPos] = useState<[number, number] | null>(
     initialLat != null && initialLng != null ? [initialLat, initialLng] : null,
@@ -53,13 +57,24 @@ export default function MapPicker({
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       (location) => {
-        setPos([location.coords.latitude, location.coords.longitude]);
+        if (headlessLocate) {
+          onPick(location.coords.latitude, location.coords.longitude);
+          onClose();
+        } else {
+          setPos([location.coords.latitude, location.coords.longitude]);
+        }
         setIsLocating(false);
       },
-      () => setIsLocating(false),
+      () => {
+        setIsLocating(false);
+        if (headlessLocate) {
+          onLocateError?.();
+          onClose();
+        }
+      },
       { enableHighAccuracy: true, timeout: 10000 },
     );
-  }, [initialLat, initialLng, open, pos]);
+  }, [headlessLocate, initialLat, initialLng, onClose, onLocateError, onPick, open, pos]);
 
   function LocationSelector() {
     const map = useMapEvents({
@@ -117,6 +132,8 @@ const mapProps = {
     ],
     zoom: pos ? 13 : 2,
   } as any;
+
+  if (headlessLocate) return null;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>

@@ -82,5 +82,17 @@
     body {
         @apply bg-background text-foreground;
     }
+
+    input[type='date'],
+    input[type='datetime-local'] {
+        font-family: inherit;
+        letter-spacing: normal;
+    }
+
+    input[type='date']::-webkit-datetime-edit,
+    input[type='datetime-local']::-webkit-datetime-edit {
+        font-family: inherit;
+        letter-spacing: normal;
+    }
 }
 

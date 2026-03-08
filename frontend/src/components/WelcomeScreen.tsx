@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,6 +24,10 @@ export default function WelcomeScreen() {
   const [geoLoading, setGeoLoading] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [usernameAvailability, setUsernameAvailability] = useState<{
+    status: 'idle' | 'checking' | 'available' | 'taken' | 'error';
+    message: string;
+  }>({ status: 'idle', message: '' });
 
   const handleGetLocation = async () => {
     setGeoLoading(true);
@@ -40,36 +44,84 @@ export default function WelcomeScreen() {
     }
   };
 
+  const trimmedUsername = username.trim();
+  const usernameFormatOk = /^[a-zA-Z0-9_-]{3,20}$/.test(trimmedUsername);
+  const shouldCheckAvailability = mode === 'register' && trimmedUsername.length > 0 && usernameFormatOk;
+
+  useEffect(() => {
+    if (!shouldCheckAvailability) {
+      if (!trimmedUsername) {
+        setUsernameAvailability({ status: 'idle', message: '' });
+      } else if (trimmedUsername.length < 3) {
+        setUsernameAvailability({ status: 'error', message: 'Too short (minimum 3 characters)' });
+      } else if (trimmedUsername.length > 20) {
+        setUsernameAvailability({ status: 'error', message: 'Too long (maximum 20 characters)' });
+      } else {
+        setUsernameAvailability({ status: 'error', message: 'Only alphanumeric, dash, and underscore allowed' });
+      }
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setUsernameAvailability({ status: 'checking', message: 'Checking availability...' });
+
+      try {
+        const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(trimmedUsername)}`);
+        const body = await res.json().catch(() => ({}));
+
+        if (cancelled) return;
+
+        if (!res.ok) {
+          setUsernameAvailability({ status: 'error', message: body.error || 'Unable to verify username right now' });
+          return;
+        }
+
+        if (body.available) {
+          setUsernameAvailability({ status: 'available', message: 'Username is available' });
+        } else {
+          setUsernameAvailability({ status: 'taken', message: 'Username is already taken' });
+        }
+      } catch (_error) {
+        if (!cancelled) {
+          setUsernameAvailability({ status: 'error', message: 'Unable to verify username right now' });
+        }
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [trimmedUsername, shouldCheckAvailability]);
+
+  const usernameBlocksSubmit =
+    mode === 'register' &&
+    !!trimmedUsername &&
+    (usernameAvailability.status === 'checking' ||
+      usernameAvailability.status === 'taken' ||
+      usernameAvailability.status === 'error');
+
   return (
     <div className="container py-12">
       <div className="mx-auto max-w-4xl space-y-12">
-        {/* Hero Section */}
         <div className="text-center space-y-4">
           <div className="flex justify-center">
             <Heart className="h-16 w-16 fill-primary text-primary" />
           </div>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            Welcome to PetCare Hub
-          </h1>
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Welcome to PetCare Hub</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Your comprehensive platform for pet management, stray animal rescue, and pet care services
           </p>
         </div>
 
-        {/* Auth Card */}
         <Card>
           <CardContent className="pt-6 space-y-4">
             <div className="flex justify-center gap-4">
-              <Button
-                variant={mode === 'login' ? 'default' : 'outline'}
-                onClick={() => setMode('login')}
-              >
+              <Button variant={mode === 'login' ? 'default' : 'outline'} onClick={() => setMode('login')}>
                 Login
               </Button>
-              <Button
-                variant={mode === 'register' ? 'default' : 'outline'}
-                onClick={() => setMode('register')}
-              >
+              <Button variant={mode === 'register' ? 'default' : 'outline'} onClick={() => setMode('register')}>
                 Register
               </Button>
             </div>
@@ -81,7 +133,7 @@ export default function WelcomeScreen() {
                 if (mode === 'login') {
                   await login(email, password);
                 } else {
-                  await register(name, email, password, role as Role, latitude, longitude, username || undefined);
+                  await register(name, email, password, role as Role, latitude, longitude, trimmedUsername || undefined);
                 }
               }}
             >
@@ -89,19 +141,12 @@ export default function WelcomeScreen() {
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                    />
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="role">I am a...</Label>
-                    <Select
-                      value={role}
-                      onValueChange={(value) => setRole(value as Role)}
-                    >
+                    <Select value={role} onValueChange={(value) => setRole(value as Role)}>
                       <SelectTrigger id="role">
                         <SelectValue placeholder="Select your role" />
                       </SelectTrigger>
@@ -114,6 +159,7 @@ export default function WelcomeScreen() {
                       </SelectContent>
                     </Select>
                   </div>
+
                   {(role === 'VET' || role === 'NGO') && (
                     <div className="space-y-2">
                       <Label>{role === 'VET' ? 'Clinic Location' : 'Organization Location'}</Label>
@@ -147,11 +193,12 @@ export default function WelcomeScreen() {
                       </Button>
                       {latitude && longitude && (
                         <p className="text-xs text-muted-foreground">
-                          Location set: {latitude.toFixed(4)}°, {longitude.toFixed(4)}°
+                          Location set: {latitude.toFixed(4)} deg, {longitude.toFixed(4)} deg
                         </p>
                       )}
                     </div>
                   )}
+
                   <div className="space-y-2">
                     <Label htmlFor="username">Username (Optional - auto-generated if not provided)</Label>
                     <Input
@@ -161,12 +208,17 @@ export default function WelcomeScreen() {
                       placeholder="3-20 characters (alphanumeric, dash, underscore)"
                       pattern="^[a-zA-Z0-9_-]{3,20}$"
                     />
-                    {username && (
-                      <p className="text-xs text-muted-foreground">
-                        {username.length < 3 && '❌ Too short (minimum 3 characters)'}
-                        {username.length > 20 && '❌ Too long (maximum 20 characters)'}
-                        {username.length >= 3 && username.length <= 20 && !!/^[a-zA-Z0-9_-]+$/.test(username) && '✓ Username looks good'}
-                        {username.length >= 3 && username.length <= 20 && !/^[a-zA-Z0-9_-]+$/.test(username) && '❌ Only alphanumeric, dash, and underscore allowed'}
+                    {trimmedUsername && (
+                      <p
+                        className={`text-xs ${
+                          usernameAvailability.status === 'available'
+                            ? 'text-green-600'
+                            : usernameAvailability.status === 'checking'
+                              ? 'text-muted-foreground'
+                              : 'text-red-600'
+                        }`}
+                      >
+                        {usernameAvailability.message}
                       </p>
                     )}
                   </div>
@@ -175,13 +227,7 @@ export default function WelcomeScreen() {
 
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
 
               <div className="space-y-2">
@@ -208,7 +254,7 @@ export default function WelcomeScreen() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isAuthenticating}>
+              <Button type="submit" className="w-full" disabled={isAuthenticating || usernameBlocksSubmit}>
                 {isAuthenticating
                   ? mode === 'login'
                     ? 'Logging in...'
@@ -230,7 +276,6 @@ export default function WelcomeScreen() {
           }}
         />
 
-        {/* Features Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardContent className="pt-6 text-center space-y-2">
@@ -250,9 +295,7 @@ export default function WelcomeScreen() {
                 <Heart className="h-10 w-10 text-primary" />
               </div>
               <h3 className="font-semibold">Stray Rescue</h3>
-              <p className="text-sm text-muted-foreground">
-                Report and track stray animals in your community
-              </p>
+              <p className="text-sm text-muted-foreground">Report and track stray animals in your community</p>
             </CardContent>
           </Card>
 
@@ -262,9 +305,7 @@ export default function WelcomeScreen() {
                 <Users className="h-10 w-10 text-primary" />
               </div>
               <h3 className="font-semibold">Adoption</h3>
-              <p className="text-sm text-muted-foreground">
-                Find your perfect companion through our adoption program
-              </p>
+              <p className="text-sm text-muted-foreground">Find your perfect companion through our adoption program</p>
             </CardContent>
           </Card>
 
@@ -274,16 +315,11 @@ export default function WelcomeScreen() {
                 <ShoppingBag className="h-10 w-10 text-primary" />
               </div>
               <h3 className="font-semibold">Pet Supplies</h3>
-              <p className="text-sm text-muted-foreground">
-                Shop for quality pet food, toys, and accessories
-              </p>
+              <p className="text-sm text-muted-foreground">Shop for quality pet food, toys, and accessories</p>
             </CardContent>
           </Card>
         </div>
-
-        {/* Image Gallery removed per request */}
       </div>
     </div>
   );
 }
-

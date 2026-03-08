@@ -6,6 +6,21 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
 const AMAZON_BASE = 'https://www.amazon.com/s?k=';
+const BLINKIT_BASE = 'https://blinkit.com/s/?q=';
+
+const essentialTerms = [
+  'food',
+  'litter',
+  'washroom',
+  'toilet',
+  'hygiene',
+  'shampoo',
+  'cleaner',
+  'wipes',
+  'pee',
+  'poop',
+  'pads',
+];
 
 const petProductBuckets = [
   {
@@ -34,8 +49,21 @@ function amazonSearchUrl(query: string) {
   return `${AMAZON_BASE}${encodeURIComponent(query)}`;
 }
 
-function openAmazon(query: string) {
-  window.open(amazonSearchUrl(query), '_blank', 'noopener,noreferrer');
+function blinkitSearchUrl(query: string) {
+  return `${BLINKIT_BASE}${encodeURIComponent(query)}`;
+}
+
+function isEssentialQuery(query: string) {
+  const normalized = query.toLowerCase();
+  return essentialTerms.some((term) => normalized.includes(term));
+}
+
+function getShopUrl(query: string) {
+  return isEssentialQuery(query) ? blinkitSearchUrl(query) : amazonSearchUrl(query);
+}
+
+function openShop(query: string) {
+  window.open(getShopUrl(query), '_blank', 'noopener,noreferrer');
 }
 
 export default function ShopTab() {
@@ -52,10 +80,11 @@ export default function ShopTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5" />
-            Shop Pet Products on Amazon
+            Shop Pet Products
           </CardTitle>
           <CardDescription>
-            Search pet-related products and open Amazon product listings directly in a new tab.
+            Essential items (food, litter, hygiene, washroom products) open on Blinkit for faster delivery.
+            Other products open on Amazon.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -67,23 +96,23 @@ export default function ShopTab() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  if (search.trim()) openAmazon(search.trim());
+                  if (search.trim()) openShop(search.trim());
                 }
               }}
             />
             <Button
               type="button"
-              onClick={() => search.trim() && openAmazon(search.trim())}
+              onClick={() => search.trim() && openShop(search.trim())}
               disabled={!search.trim()}
             >
               <Search className="mr-2 h-4 w-4" />
-              Search Amazon
+              Search Store
             </Button>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {quickTags.map((tag) => (
-              <Button key={tag} type="button" variant="outline" size="sm" onClick={() => openAmazon(tag)}>
+              <Button key={tag} type="button" variant="outline" size="sm" onClick={() => openShop(tag)}>
                 #{tag}
               </Button>
             ))}
@@ -94,7 +123,7 @@ export default function ShopTab() {
       <div className="space-y-4">
         <div>
           <h3 className="text-2xl font-bold">Popular Pet Shopping Categories</h3>
-          <p className="text-muted-foreground">Use common pet tags and jump to Amazon results instantly.</p>
+          <p className="text-muted-foreground">Essentials auto-route to Blinkit; non-essentials go to Amazon.</p>
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2">
@@ -107,13 +136,13 @@ export default function ShopTab() {
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap gap-2">
                   {bucket.keywords.map((keyword) => (
-                    <Badge key={keyword} variant="secondary" className="cursor-pointer" onClick={() => openAmazon(keyword)}>
+                    <Badge key={keyword} variant="secondary" className="cursor-pointer" onClick={() => openShop(keyword)}>
                       {keyword}
                     </Badge>
                   ))}
                 </div>
-                <Button className="w-full" onClick={() => openAmazon(bucket.keywords.join(' '))}>
-                  View on Amazon
+                <Button className="w-full" onClick={() => openShop(bucket.keywords.join(' '))}>
+                  View Products
                   <ExternalLink className="ml-2 h-4 w-4" />
                 </Button>
               </CardContent>

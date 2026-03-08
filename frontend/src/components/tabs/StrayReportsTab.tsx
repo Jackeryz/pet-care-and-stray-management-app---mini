@@ -8,12 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Plus, MapPin } from 'lucide-react';
-import type { StrayReport, ReportStatus } from '../../types';
-import { getApiBaseUrl, buildApiUrl } from '../../hooks/useAuth';
+import type { StrayReport, ReportStatus, NgoReportStatus, VetReportStatus, Role } from '../../types';
 import MapPicker from '@/components/MapPicker';
 import { toast } from 'sonner';
+
+const NGO_ACTIONS: NgoReportStatus[] = ['RESCUED', 'HOUSED', 'RESOLVED'];
+const VET_ACTIONS: VetReportStatus[] = ['FIRST_AID_PROVIDED', 'HOUSED_AT_VET', 'RESOLVED'];
 
 export default function StrayReportsTab() {
   const { data: allReports, isLoading: allLoading, refetch } = useListStrayReports();
@@ -21,21 +22,19 @@ export default function StrayReportsTab() {
   const { onStrayReportReceived } = useStrayReportNotifications();
   const [showReportForm, setShowReportForm] = useState(false);
 
-  const isNGO = userProfile?.role === 'NGO';
+  const isResponder = userProfile?.role === 'NGO' || userProfile?.role === 'VET';
 
-  // Listen for real-time stray report notifications (for NGOs)
   useEffect(() => {
-    if (!isNGO) return;
+    if (!isResponder) return;
 
     onStrayReportReceived((data) => {
-      console.log('New stray report notification:', data);
-      toast.success(`New stray reported at ${data.location}: ${data.description}`, {
+      const responderRole = data.responderRole ? String(data.responderRole).toLowerCase() : 'responder';
+      toast.success(`New stray alert for ${responderRole} at ${data.location}: ${data.description}`, {
         duration: 5000,
       });
-      // Refetch reports to show new notification
       refetch();
     });
-  }, [isNGO, onStrayReportReceived, refetch]);
+  }, [isResponder, onStrayReportReceived, refetch]);
 
   if (allLoading) {
     return (
@@ -52,16 +51,12 @@ export default function StrayReportsTab() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-2xl font-bold">
-            {isNGO ? 'Received Reports' : 'My Stray Reports'}
-          </h3>
+          <h3 className="text-2xl font-bold">{isResponder ? 'Received Reports' : 'My Stray Reports'}</h3>
           <p className="text-muted-foreground">
-            {isNGO 
-              ? 'Reports you have been notified about'
-              : 'Track the status of stray reports you have made'}
+            {isResponder ? 'Reports you have been alerted about' : 'Track the status of stray reports you have made'}
           </p>
         </div>
-        {!isNGO && (
+        {!isResponder && (
           <Dialog open={showReportForm} onOpenChange={setShowReportForm}>
             <DialogTrigger asChild>
               <Button>
@@ -79,12 +74,8 @@ export default function StrayReportsTab() {
       {isEmpty ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">
-              {isNGO 
-                ? 'No reports yet' 
-                : 'You haven\'t reported any strays yet'}
-            </p>
-            {!isNGO && (
+            <p className="text-muted-foreground mb-4">{isResponder ? 'No reports yet' : "You haven't reported any strays yet"}</p>
+            {!isResponder && (
               <Button onClick={() => setShowReportForm(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Report a Stray Animal
@@ -95,7 +86,11 @@ export default function StrayReportsTab() {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {reports.map((report) => (
-            <StrayReportCard key={report.id} report={report} isNGO={isNGO} />
+            <StrayReportCard
+              key={report.id}
+              report={report}
+              userRole={(userProfile?.role as Role | undefined) ?? 'PUBLIC_USER'}
+            />
           ))}
         </div>
       )}
@@ -103,41 +98,46 @@ export default function StrayReportsTab() {
   );
 }
 
-function StrayReportCard({ report, isNGO }: { report: StrayReport; isNGO: boolean }) {
-  const [showStatusUpdate, setShowStatusUpdate] = useState(false);
+function StrayReportCard({ report, userRole }: { report: StrayReport; userRole: Role }) {
   const updateStatus = useUpdateReportStatus();
-  const [newStatus, setNewStatus] = useState<string>('');
+  const isNGO = userRole === 'NGO';
+  const isVET = userRole === 'VET';
 
-  const getStatusBadge = (status: ReportStatus) => {
+  const getOverallStatusBadge = (status: ReportStatus) => {
     const variants: Record<ReportStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       REPORTED: 'destructive',
       VERIFIED: 'secondary',
       RESCUED: 'default',
       RESOLVED: 'outline',
     };
-    return (
-      <Badge variant={variants[status] || 'default'}>
-        {status.charAt(0) + status.slice(1).toLowerCase()}
-      </Badge>
-    );
+    return <Badge variant={variants[status] || 'default'}>Overall: {status}</Badge>;
   };
 
-  const handleStatusUpdate = () => {
-    if (!newStatus) return;
-    updateStatus.mutate(
-      { id: report.id, status: newStatus as ReportStatus },
-      {
-        onSuccess: () => setShowStatusUpdate(false),
-      }
-    );
+  const getNgoStatusBadge = (status?: NgoReportStatus) => {
+    const value = status || 'PENDING';
+    const variant: 'default' | 'secondary' | 'outline' =
+      value === 'RESOLVED' ? 'default' : value === 'PENDING' ? 'outline' : 'secondary';
+    return <Badge variant={variant}>NGO: {value}</Badge>;
+  };
+
+  const getVetStatusBadge = (status?: VetReportStatus) => {
+    const value = status || 'PENDING';
+    const variant: 'default' | 'secondary' | 'outline' =
+      value === 'RESOLVED' ? 'default' : value === 'PENDING' ? 'outline' : 'secondary';
+    const label = value === 'HOUSED_AT_VET' ? 'HOUSED' : value;
+    return <Badge variant={variant}>VET: {label}</Badge>;
+  };
+
+  const handleUpdate = (status: string) => {
+    updateStatus.mutate({ id: report.id, status });
   };
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-lg">Report #{report.id}</CardTitle>
-          {getStatusBadge(report.status)}
+          {getOverallStatusBadge(report.status)}
         </div>
         <CardDescription className="flex items-center gap-1">
           <MapPin className="h-3 w-3" />
@@ -146,53 +146,66 @@ function StrayReportCard({ report, isNGO }: { report: StrayReport; isNGO: boolea
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm">{report.description}</p>
+
+        <div className="flex flex-wrap gap-2">
+          {getNgoStatusBadge(report.ngoStatus)}
+          {getVetStatusBadge(report.vetStatus)}
+        </div>
+
+        {report.sharedVetBaseLocation && (
+          <p className="text-xs text-muted-foreground">
+            Vet base location shared: {report.sharedVetBaseLocation.responderName || 'Vet'} ({report.sharedVetBaseLocation.latitude.toFixed(4)},{' '}
+            {report.sharedVetBaseLocation.longitude.toFixed(4)})
+          </p>
+        )}
+
+        {report.sharedNgoBaseLocation && (
+          <p className="text-xs text-muted-foreground">
+            NGO base location shared: {report.sharedNgoBaseLocation.responderName || 'NGO'} ({report.sharedNgoBaseLocation.latitude.toFixed(4)},{' '}
+            {report.sharedNgoBaseLocation.longitude.toFixed(4)})
+          </p>
+        )}
+
         {isNGO && (
-          <>
-            {!showStatusUpdate ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setShowStatusUpdate(true)}
-              >
-                Update Status
-              </Button>
-            ) : (
-              <div className="space-y-2">
-                <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="VERIFIED">Verified</SelectItem>
-                    <SelectItem value="RESCUED">Rescued</SelectItem>
-                    <SelectItem value="RESOLVED">Resolved</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    onClick={handleStatusUpdate}
-                    disabled={updateStatus.isPending}
-                  >
-                    {updateStatus.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      'Update'
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowStatusUpdate(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
+          <div className="space-y-2">
+            <p className="text-xs font-medium">NGO Actions</p>
+            <div className="flex flex-wrap gap-2">
+              {NGO_ACTIONS.map((status) => (
+                <Button
+                  key={status}
+                  size="sm"
+                  variant={report.ngoStatus === status ? 'default' : 'outline'}
+                  onClick={() => handleUpdate(status)}
+                  disabled={updateStatus.isPending}
+                >
+                  {status === 'HOUSED' ? 'Housed' : status === 'RESCUED' ? 'Rescued' : 'Resolved'}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isVET && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium">Vet Actions</p>
+            <div className="flex flex-wrap gap-2">
+              {VET_ACTIONS.map((status) => (
+                <Button
+                  key={status}
+                  size="sm"
+                  variant={report.vetStatus === status ? 'default' : 'outline'}
+                  onClick={() => handleUpdate(status)}
+                  disabled={updateStatus.isPending}
+                >
+                  {status === 'FIRST_AID_PROVIDED'
+                    ? 'First Aid Provided'
+                    : status === 'HOUSED_AT_VET'
+                      ? 'Housed'
+                      : 'Resolved'}
+                </Button>
+              ))}
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -207,38 +220,31 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
   const [longitude, setLongitude] = useState<number | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mapPickerMode, setMapPickerMode] = useState<'auto' | 'manual'>('manual');
   const reportStray = useReportStray();
 
-  const handleGetLocation = async () => {
+  const handleGetLocation = () => {
     setGeoLoading(true);
-    try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject);
-      });
-      setLatitude(position.coords.latitude);
-      setLongitude(position.coords.longitude);
-    } catch (error) {
-      console.error('Geolocation error:', error);
-    } finally {
-      setGeoLoading(false);
-    }
+    setMapPickerMode('auto');
+    setShowMapPicker(true);
   };
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
-        { headers: { 'Accept': 'application/json' } }
+        { headers: { Accept: 'application/json' } },
       );
       if (!res.ok) return null;
       const data = await res.json();
       return data.display_name as string | null;
-    } catch (e) {
+    } catch {
       return null;
     }
   };
 
   const handleMapPick = async (lat: number, lng: number) => {
+    setGeoLoading(false);
     setLatitude(lat);
     setLongitude(lng);
     const addr = await reverseGeocode(lat, lng);
@@ -259,7 +265,7 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
       },
       {
         onSuccess,
-      }
+      },
     );
   };
 
@@ -280,6 +286,7 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
             required
           />
         </div>
+
         <div className="space-y-2">
           <Label>Get Coordinates</Label>
           <Button
@@ -304,7 +311,10 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => setShowMapPicker(true)}
+            onClick={() => {
+              setMapPickerMode('manual');
+              setShowMapPicker(true);
+            }}
             className="w-full mt-2"
           >
             <MapPin className="mr-2 h-4 w-4" />
@@ -312,10 +322,11 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
           </Button>
           {latitude && longitude && (
             <p className="text-xs text-muted-foreground">
-              Coordinates: {latitude.toFixed(4)}°, {longitude.toFixed(4)}°
+              Coordinates: {latitude.toFixed(4)} deg, {longitude.toFixed(4)} deg
             </p>
           )}
         </div>
+
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>
           <Textarea
@@ -327,6 +338,7 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
             rows={4}
           />
         </div>
+
         <div className="space-y-2">
           <Label htmlFor="stray-photo">Photo</Label>
           <Input
@@ -337,6 +349,7 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
             required
           />
         </div>
+
         <Button type="submit" className="w-full" disabled={reportStray.isPending}>
           {reportStray.isPending ? (
             <>
@@ -348,9 +361,14 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
           )}
         </Button>
       </form>
+
       <MapPicker
         open={showMapPicker}
         onClose={() => setShowMapPicker(false)}
+        headlessLocate={mapPickerMode === 'auto'}
+        onLocateError={() => {
+          setGeoLoading(false);
+        }}
         onPick={handleMapPick}
         initialLat={latitude ?? undefined}
         initialLng={longitude ?? undefined}
@@ -358,4 +376,3 @@ function ReportStrayForm({ onSuccess }: { onSuccess: () => void }) {
     </>
   );
 }
-

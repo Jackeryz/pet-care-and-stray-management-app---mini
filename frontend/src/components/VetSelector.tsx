@@ -23,19 +23,28 @@ interface Props {
   onSelectVet: (vetId: string, vetName: string) => void;
   open: boolean;
   onClose: () => void;
+  currentLocation?: { latitude: number; longitude: number } | null;
 }
 
-export default function VetSelector({ onSelectVet, open, onClose }: Props) {
-  const { data: availableVets, isLoading } = useGetAvailableVets();
+export default function VetSelector({ onSelectVet, open, onClose, currentLocation }: Props) {
+  const { data: availableVets, isLoading, isError, error } = useGetAvailableVets(
+    currentLocation ?? undefined,
+    open && !!currentLocation
+  );
   const [selectedVetId, setSelectedVetId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
 
-  // Set map center to first vet or default
+  // Center map on live user location when available, otherwise first nearby vet.
   useEffect(() => {
+    if (currentLocation) {
+      setMapCenter([currentLocation.latitude, currentLocation.longitude]);
+      return;
+    }
+
     if (availableVets && availableVets.length > 0) {
       setMapCenter([availableVets[0].latitude, availableVets[0].longitude]);
     }
-  }, [availableVets]);
+  }, [availableVets, currentLocation]);
 
   const handleSelect = () => {
     if (selectedVetId) {
@@ -59,6 +68,25 @@ export default function VetSelector({ onSelectVet, open, onClose }: Props) {
     );
   }
 
+  if (isError) {
+    const message = error instanceof Error ? error.message : 'Failed to load available vets';
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unable to Find Nearby Vets</DialogTitle>
+            <DialogDescription>{message}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   if (!availableVets || availableVets.length === 0) {
     return (
       <Dialog open={open} onOpenChange={onClose}>
@@ -66,7 +94,7 @@ export default function VetSelector({ onSelectVet, open, onClose }: Props) {
           <DialogHeader>
             <DialogTitle>No Vets Available</DialogTitle>
             <DialogDescription>
-              There are no vets within 50 km of your location. Please update your location in settings.
+              There are no vets within 50 km of your current or saved location.
             </DialogDescription>
           </DialogHeader>
         </DialogContent>
