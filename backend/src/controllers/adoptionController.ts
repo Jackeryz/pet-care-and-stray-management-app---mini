@@ -39,12 +39,33 @@ export const listPetForAdoption = async (
       return;
     }
 
-    const updatedPet = await prisma.pet.update({
-      where: { id: numericPetId },
-      data: { isListed: true },
+    const result = await prisma.$transaction(async (tx) => {
+      const existingRecords = await tx.adoptionRecord.findMany({
+        where: { petId: numericPetId },
+        select: { id: true },
+      });
+      const adoptionRecordIds = existingRecords.map((record) => record.id);
+
+      if (adoptionRecordIds.length > 0) {
+        await tx.chatMessage.deleteMany({
+          where: {
+            adoptionRecordId: { in: adoptionRecordIds },
+          },
+        });
+        await tx.adoptionRecord.deleteMany({
+          where: { petId: numericPetId },
+        });
+      }
+
+      const updatedPet = await tx.pet.update({
+        where: { id: numericPetId },
+        data: { isListed: true },
+      });
+
+      return { updatedPet, clearedRequests: adoptionRecordIds.length };
     });
 
-    res.json({ success: true, pet: updatedPet });
+    res.json({ success: true, pet: result.updatedPet, clearedRequests: result.clearedRequests });
   } catch (error) {
     res.status(500).json({ error: "Failed to list pet for adoption" });
   }
@@ -346,6 +367,76 @@ export const acceptAdoptionRequest = async (
     res.json({ success: true, adoptionRecord: updated });
   } catch (error) {
     res.status(500).json({ error: "Failed to accept adoption request" });
+  }
+};
+
+// Pet owner transfers pet ownership to approved applicant
+export const transferAdoptedPet = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user!.id;
+
+    const adoptionRecord = await prisma.adoptionRecord.findUnique({
+      where: { id: Number(requestId) },
+      include: { pet: true, applicant: true },
+    });
+
+    if (!adoptionRecord) {
+      res.status(404).json({ error: "Adoption request not found" });
+      return;
+    }
+
+    if (adoptionRecord.pet.ownerId !== userId) {
+      res.status(403).json({ error: "Only the current pet owner can transfer ownership" });
+      return;
+    }
+
+    if (adoptionRecord.status !== "APPROVED") {
+      res.status(400).json({ error: "Only approved adoption requests can be transferred" });
+      return;
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const existingRecords = await tx.adoptionRecord.findMany({
+        where: { petId: adoptionRecord.petId },
+        select: { id: true },
+      });
+      const adoptionRecordIds = existingRecords.map((record) => record.id);
+
+      const updatedPet = await tx.pet.update({
+        where: { id: adoptionRecord.petId },
+        data: {
+          ownerId: adoptionRecord.applicantId,
+          isListed: false,
+        },
+      });
+
+      // Fresh cycle after transfer: remove chats and all past requests for this pet.
+      if (adoptionRecordIds.length > 0) {
+        await tx.chatMessage.deleteMany({
+          where: {
+            adoptionRecordId: { in: adoptionRecordIds },
+          },
+        });
+      }
+      await tx.adoptionRecord.deleteMany({
+        where: { petId: adoptionRecord.petId },
+      });
+
+      return { updatedPet, clearedRequests: adoptionRecordIds.length };
+    });
+
+    res.json({
+      success: true,
+      message: "Pet transferred to adopter successfully",
+      pet: result.updatedPet,
+      clearedRequests: result.clearedRequests,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to transfer adopted pet" });
   }
 };
 

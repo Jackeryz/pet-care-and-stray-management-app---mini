@@ -1,6 +1,6 @@
 // src/routes/authRoutes.ts
 import express from "express";
-import { register, login, getProfile, updateUsername, updateLocation, deleteAccount } from "../controllers/authController";
+import { register, login, getProfile, updateUsername, updateLocation, deleteAccount, checkUsernameAvailability } from "../controllers/authController";
 import { authenticate } from "../middlewares/auth";
 
 const router = express.Router();
@@ -10,6 +10,9 @@ router.post("/register", register);
 
 // POST /api/auth/login
 router.post("/login", login);
+
+// GET /api/auth/check-username?username=foo
+router.get("/check-username", checkUsernameAvailability);
 
 //[PROTECTED ROUTE]
 // GET /api/auth/me

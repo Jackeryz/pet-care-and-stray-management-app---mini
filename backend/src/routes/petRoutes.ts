@@ -7,6 +7,7 @@ import {
   getMedicalRecord,
   addMedicalRecord,
   deletePet,
+  updatePetBirthdate,
   updatePetPhoto,
 } from "../controllers/petController";
 import { authenticate } from "../middlewares/auth";
@@ -29,6 +30,7 @@ const handleMulterError = (err: any, req: express.Request, res: express.Response
 router.get("/", authenticate, listPets);
 router.post("/", authenticate, upload.single("photo"), handleMulterError, createPet);
 router.patch("/:petId/photo", authenticate, upload.single("photo"), handleMulterError, updatePetPhoto);
+router.patch("/:petId/birthdate", authenticate, updatePetBirthdate);
 router.delete("/:petId", authenticate, deletePet);
 router.post("/assign-vet", authenticate, assignVet);
 

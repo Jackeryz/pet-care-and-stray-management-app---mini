@@ -66,6 +66,7 @@ export function useCreatePet() {
       name,
       breed,
       age,
+      birthdate,
       photo,
     }: {
       name: string;

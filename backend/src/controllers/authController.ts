@@ -85,6 +85,41 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// Check username availability (public)
+export const checkUsernameAvailability = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const rawUsername = req.query.username;
+    const username =
+      typeof rawUsername === "string" ? rawUsername.trim() : "";
+
+    if (!username) {
+      res.status(400).json({ error: "Username is required" });
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(username)) {
+      res.status(400).json({
+        error:
+          "Username must be 3-20 characters (alphanumeric, dash, underscore only)",
+      });
+      return;
+    }
+
+    const existingUsername = await prisma.user.findUnique({
+      where: { username },
+      select: { id: true },
+    });
+
+    res.json({ available: !existingUsername });
+  } catch (error) {
+    console.error("Error checking username availability:", error);
+    res.status(500).json({ error: "Failed to check username availability" });
+  }
+};
+
 // Login User
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {

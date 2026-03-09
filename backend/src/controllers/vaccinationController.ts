@@ -30,13 +30,22 @@ export const getAvailableVets = async (
       return;
     }
 
-    // Get user's location
+    const queryLatitude = Number(req.query.latitude);
+    const queryLongitude = Number(req.query.longitude);
+    const hasLiveLocation =
+      Number.isFinite(queryLatitude) &&
+      Number.isFinite(queryLongitude);
+
+    // Get user's saved location (fallback)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { latitude: true, longitude: true },
     });
 
-    if (!user || !user.latitude || !user.longitude) {
+    const referenceLatitude = hasLiveLocation ? queryLatitude : user?.latitude;
+    const referenceLongitude = hasLiveLocation ? queryLongitude : user?.longitude;
+
+    if (referenceLatitude == null || referenceLongitude == null) {
       res.status(400).json({ error: "Your location is not set" });
       return;
     }
@@ -52,8 +61,8 @@ export const getAvailableVets = async (
       .filter((vet) => vet.latitude && vet.longitude)
       .map((vet) => {
         const distance = calculateDistance(
-          user.latitude!,
-          user.longitude!,
+          referenceLatitude,
+          referenceLongitude,
           vet.latitude!,
           vet.longitude!
         );
@@ -79,7 +88,7 @@ export const scheduleVaccination = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const { petId, vaccineName, scheduledDate, notes, assignedVetId } = req.body;
+    const { petId, vaccineName, scheduledDate, notes, assignedVetId, latitude, longitude } = req.body;
 
     if (!userId || !petId || !vaccineName || !scheduledDate || !assignedVetId) {
       res
@@ -112,11 +121,18 @@ export const scheduleVaccination = async (
       return;
     }
 
-    // Verify vet is within 50 km
-    if (pet.owner.latitude && pet.owner.longitude && vet.latitude && vet.longitude) {
+    const liveLatitude = Number(latitude);
+    const liveLongitude = Number(longitude);
+    const hasLiveLocation = Number.isFinite(liveLatitude) && Number.isFinite(liveLongitude);
+
+    const referenceLatitude = hasLiveLocation ? liveLatitude : pet.owner.latitude;
+    const referenceLongitude = hasLiveLocation ? liveLongitude : pet.owner.longitude;
+
+    // Verify vet is within 50 km using live location when provided.
+    if (referenceLatitude != null && referenceLongitude != null && vet.latitude != null && vet.longitude != null) {
       const distance = calculateDistance(
-        pet.owner.latitude,
-        pet.owner.longitude,
+        referenceLatitude,
+        referenceLongitude,
         vet.latitude,
         vet.longitude
       );
