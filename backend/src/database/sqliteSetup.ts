@@ -20,6 +20,24 @@ export function ensureSqliteSchema(dbPath = path.join(process.cwd(), 'dev.db')) 
     try {
       db.prepare('ALTER TABLE StrayReport ADD COLUMN longitude REAL').run();
     } catch (e) {}
+    try {
+      db.prepare('ALTER TABLE StrayReport ADD COLUMN ngoStatus TEXT DEFAULT "PENDING"').run();
+    } catch (e) {}
+    try {
+      db.prepare('ALTER TABLE StrayReport ADD COLUMN vetStatus TEXT DEFAULT "PENDING"').run();
+    } catch (e) {}
+    try {
+      db.prepare('ALTER TABLE StrayReport ADD COLUMN ngoResponderId TEXT').run();
+    } catch (e) {}
+    try {
+      db.prepare('ALTER TABLE StrayReport ADD COLUMN vetResponderId TEXT').run();
+    } catch (e) {}
+    try {
+      db.prepare('ALTER TABLE StrayReport ADD COLUMN ngoUpdatedAt DATETIME').run();
+    } catch (e) {}
+    try {
+      db.prepare('ALTER TABLE StrayReport ADD COLUMN vetUpdatedAt DATETIME').run();
+    } catch (e) {}
 
     // Create notifications table
     db.prepare(
@@ -79,10 +97,19 @@ export function ensureSqliteSchema(dbPath = path.join(process.cwd(), 'dev.db')) 
 }
 
 export function queryNGOsWithLocation(dbPath = path.join(process.cwd(), 'dev.db')) {
+  return queryUsersWithLocationByRole('NGO', dbPath);
+}
+
+export function queryUsersWithLocationByRole(
+  role: 'NGO' | 'VET',
+  dbPath = path.join(process.cwd(), 'dev.db')
+) {
   const db = new Database(dbPath, { readonly: true });
   try {
-    const stmt = db.prepare('SELECT id, name, email, latitude, longitude FROM "User" WHERE role = ? AND latitude IS NOT NULL AND longitude IS NOT NULL');
-    return stmt.all('NGO');
+    const stmt = db.prepare(
+      'SELECT id, name, email, latitude, longitude FROM "User" WHERE role = ? AND latitude IS NOT NULL AND longitude IS NOT NULL'
+    );
+    return stmt.all(role);
   } finally {
     db.close();
   }

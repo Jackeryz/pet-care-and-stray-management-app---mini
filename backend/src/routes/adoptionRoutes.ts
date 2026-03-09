@@ -9,6 +9,7 @@ import {
   listAllAdoptionRequests,
   listAllAdoptions,
   acceptAdoptionRequest,
+  transferAdoptedPet,
   rejectAdoptionRequest,
   updateAdoptionStatus,
 } from "../controllers/adoptionController";
@@ -38,6 +39,9 @@ router.get("/", authenticate, listMyAdoptionRequests);
 
 // PATCH /api/adoptions/:requestId/accept - Owner accepts request
 router.patch("/:requestId/accept", authenticate, acceptAdoptionRequest);
+
+// PATCH /api/adoptions/:requestId/transfer - Owner transfers pet
+router.patch("/:requestId/transfer", authenticate, transferAdoptedPet);
 
 // PATCH /api/adoptions/:requestId/reject - Owner rejects request
 router.patch("/:requestId/reject", authenticate, rejectAdoptionRequest);

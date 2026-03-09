@@ -27,6 +27,7 @@ model User {
   assignedVaccinations ScheduledVaccination[]
   strayReports StrayReport[]
   adoptions    AdoptionRecord[]
+  chatMessages ChatMessage[]
   orders       Order[]
     birthdate   DateTime? // Optional birthdate
 }
@@ -79,6 +80,14 @@ model StrayReport {
   description String
   photoUrl    String?
   status      String // "REPORTED", "VERIFIED", "RESCUED", "RESOLVED"
+  latitude    Float?
+  longitude   Float?
+  ngoStatus   String?  @default("PENDING")
+  vetStatus   String?  @default("PENDING")
+  ngoResponderId String?
+  vetResponderId String?
+  ngoUpdatedAt DateTime?
+  vetUpdatedAt DateTime?
   reporterId  String
   reporter    User     @relation(fields: [reporterId], references: [id])
   createdAt   DateTime @default(now())
@@ -93,6 +102,31 @@ model AdoptionRecord {
   status      String   @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
   chatCreated Boolean  @default(false) // Whether chat has been created for this adoption
   createdAt   DateTime @default(now())
+  chatMessages ChatMessage[]
+}
+
+model ChatMessage {
+  id               Int            @id @default(autoincrement())
+  adoptionRecordId Int
+  senderId         String
+  message          String
+  createdAt        DateTime       @default(now())
+  isRead           Int            @default(0)
+  adoptionRecord   AdoptionRecord @relation(fields: [adoptionRecordId], references: [id])
+  sender           User           @relation(fields: [senderId], references: [id])
+
+  @@map("chat_messages")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  ngoId     String
+  reportId  Int
+  message   String?
+  createdAt DateTime @default(now())
+  read      Int      @default(0)
+
+  @@map("notifications")
 }
 
 model Product {

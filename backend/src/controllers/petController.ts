@@ -1,4 +1,4 @@
-// src/controllers/petController.ts
+﻿// src/controllers/petController.ts
 import { Response } from "express";
 import { AuthRequest } from "../middlewares/auth";
 import { prisma } from "../database/db";
@@ -6,10 +6,87 @@ import { deleteChatMessagesByAdoptionRecordIds } from "../database/sqliteSetup";
 
 // --- Pet Management ---
 
+const parseBirthdateInput = (input: unknown): Date | null => {
+  if (typeof input !== "string" || !input.trim()) return null;
+  const trimmed = input
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[/.]/g, "-")
+    .replace(/[\u2013\u2014]/g, "-");
+
+  // Accept DD-MM-YYYY.
+  const ddmmyyyy = /^(\d{1,2})-(\d{1,2})-(\d{4})$/;
+  const ddmmyyyyMatch = trimmed.match(ddmmyyyy);
+  if (ddmmyyyyMatch) {
+    const dd = ddmmyyyyMatch[1];
+    const mm = ddmmyyyyMatch[2];
+    const yyyy = ddmmyyyyMatch[3];
+    if (!dd || !mm || !yyyy) return null;
+    const day = dd.padStart(2, "0");
+    const month = mm.padStart(2, "0");
+    const parsed = new Date(`${yyyy}-${month}-${day}T00:00:00.000Z`);
+    if (
+      !Number.isNaN(parsed.getTime()) &&
+      parsed.getUTCFullYear() === Number(yyyy) &&
+      parsed.getUTCMonth() + 1 === Number(month) &&
+      parsed.getUTCDate() === Number(day)
+    ) {
+      return parsed;
+    }
+    return null;
+  }
+
+  // Accept YYYY-MM-DD.
+  const yyyymmdd = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
+  const yyyymmddMatch = trimmed.match(yyyymmdd);
+  if (yyyymmddMatch) {
+    const yyyy = yyyymmddMatch[1];
+    const mm = yyyymmddMatch[2];
+    const dd = yyyymmddMatch[3];
+    if (!dd || !mm || !yyyy) return null;
+    const month = mm.padStart(2, "0");
+    const day = dd.padStart(2, "0");
+    const parsed = new Date(`${yyyy}-${month}-${day}T00:00:00.000Z`);
+    if (
+      !Number.isNaN(parsed.getTime()) &&
+      parsed.getUTCFullYear() === Number(yyyy) &&
+      parsed.getUTCMonth() + 1 === Number(month) &&
+      parsed.getUTCDate() === Number(day)
+    ) {
+      return parsed;
+    }
+    return null;
+  }
+
+  // Also accept ISO-style date values.
+  const isoParsed = new Date(trimmed);
+  if (!Number.isNaN(isoParsed.getTime())) return isoParsed;
+  return null;
+};
+
 // Create a new Pet
 export const createPet = async (req: AuthRequest, res: Response) => {
   try {
     const { name, breed, age, birthdate } = req.body;
+    const parsedBirthdate = parseBirthdateInput(birthdate);
+    if (typeof birthdate === "string" && birthdate.trim() && !parsedBirthdate) {
+      res.status(400).json({ error: "Invalid birthdate. Use DD-MM-YYYY or YYYY-MM-DD format." });
+      return;
+    }
+    const derivedAge = (() => {
+      if (parsedBirthdate) {
+        const now = new Date();
+        let years = now.getUTCFullYear() - parsedBirthdate.getUTCFullYear();
+        const monthDiff = now.getUTCMonth() - parsedBirthdate.getUTCMonth();
+        const dayDiff = now.getUTCDate() - parsedBirthdate.getUTCDate();
+        if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) years--;
+        return Math.max(0, years);
+      }
+
+      const numericAge = Number(age);
+      if (Number.isFinite(numericAge) && numericAge >= 0) return Math.floor(numericAge);
+      return 0;
+    })();
 
     console.log("CreatePet Request:", { name, breed, age });
     console.log("File Info:", req.file ? { filename: req.file.filename, mimetype: req.file.mimetype, size: req.file.size } : "No file");
@@ -24,10 +101,10 @@ export const createPet = async (req: AuthRequest, res: Response) => {
       data: {
         name,
         breed,
-        age: Number(age), // Ensure it's a number
+        age: derivedAge,
         photoUrl,
         ownerId: req.user!.id, // Link to the logged-in user
-        birthdate: birthdate ? new Date(birthdate) : undefined,
+        birthdate: parsedBirthdate,
       },
     });
 
@@ -47,12 +124,14 @@ export const listPets = async (req: AuthRequest, res: Response) => {
 
     // Logic:
     // 1. Admins see ALL pets.
-    // 2. Vets see pets assigned to them.
-    // 3. Owners see only their own pets.
+    // 2. Vets see pets assigned to them OR owned by them.
+    // 3. Others see only their own pets.
     if (role === "ADMIN") {
       whereClause = {};
     } else if (role === "VET") {
-      whereClause = { assignedVetId: id };
+      whereClause = {
+        OR: [{ assignedVetId: id }, { ownerId: id }],
+      };
     } else {
       whereClause = { ownerId: id };
     }
@@ -208,6 +287,57 @@ export const deletePet = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// Update Pet Birthdate (and derived age)
+export const updatePetBirthdate = async (req: AuthRequest, res: Response) => {
+  try {
+    const { petId } = req.params;
+    const { birthdate } = req.body;
+    const userId = req.user!.id;
+
+    if (typeof birthdate !== "string" || !birthdate.trim()) {
+      res.status(400).json({ error: "Birthdate is required" });
+      return;
+    }
+
+    const pet = await prisma.pet.findUnique({
+      where: { id: Number(petId) },
+    });
+    if (!pet) {
+      res.status(404).json({ error: "Pet not found" });
+      return;
+    }
+    if (pet.ownerId !== userId) {
+      res.status(403).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const parsedBirthdate = parseBirthdateInput(birthdate);
+    if (!parsedBirthdate) {
+      res.status(400).json({ error: "Invalid birthdate. Use DD-MM-YYYY or YYYY-MM-DD format." });
+      return;
+    }
+
+    const now = new Date();
+    let years = now.getUTCFullYear() - parsedBirthdate.getUTCFullYear();
+    const monthDiff = now.getUTCMonth() - parsedBirthdate.getUTCMonth();
+    const dayDiff = now.getUTCDate() - parsedBirthdate.getUTCDate();
+    if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) years--;
+    const derivedAge = Math.max(0, years);
+
+    const updatedPet = await prisma.pet.update({
+      where: { id: Number(petId) },
+      data: {
+        birthdate: parsedBirthdate,
+        age: derivedAge,
+      },
+    });
+
+    res.json(updatedPet);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update pet birthdate" });
+  }
+};
+
 // Update Pet Photo
 export const updatePetPhoto = async (req: AuthRequest, res: Response) => {
   try {
@@ -247,3 +377,4 @@ export const updatePetPhoto = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: "Failed to update pet photo" });
   }
 };
+
